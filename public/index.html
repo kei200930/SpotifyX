@@ -79,7 +79,7 @@
             <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
           </button>
           <button id="topbar-settings-btn" class="btn-primary" onclick="app.openSettingsModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             <span>API Settings</span>
           </button>
         </div>
@@ -201,20 +201,68 @@
       </div>
 
       <!-- VIEW 3: PLAYLIST / ALBUM TRACKS VIEW -->
-      <div id="playlist-view" class="view-content hidden">
+      <div id="playlist-view" class="view-content hidden" style="position: relative;">
+        <!-- Ambient Glowing Aura -->
+        <div id="playlist-ambient-glow" class="playlist-ambient-glow theme-cyberpunk"></div>
+
         <div class="playlist-header-card">
-          <img id="playlist-detail-img" src="" alt="Playlist Cover" class="playlist-detail-img">
+          <div class="playlist-cover-container">
+            <div class="playlist-detail-img-wrapper">
+              <img id="playlist-detail-img" src="" alt="Playlist Cover" class="playlist-detail-img">
+              <!-- Cover Hover Overlay to Edit Cover directly! -->
+              <div id="playlist-cover-hover-edit" class="edit-cover-overlay" onclick="app.triggerEditPlaylistCover()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <span>Ubah Foto</span>
+              </div>
+              <!-- Hidden File Input for Editing Cover Directly -->
+              <input type="file" id="playlist-detail-cover-file" accept="image/*" style="display: none;" onchange="app.handleEditPlaylistCover(event)">
+            </div>
+            <!-- Interactive Spinning Vinyl Record Peak Out! -->
+            <div class="vinyl-record-peek" id="playlist-vinyl-record">
+              <div class="vinyl-grooves"></div>
+              <div class="vinyl-label-center">
+                <img id="vinyl-label-img" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80" class="vinyl-center-art">
+              </div>
+              <div class="vinyl-center-hole"></div>
+            </div>
+          </div>
+
           <div class="playlist-detail-info">
-            <span id="playlist-detail-type" class="playlist-meta-type">PLAYLIST</span>
+            <div class="playlist-meta-container">
+              <span id="playlist-detail-type" class="playlist-meta-type">PLAYLIST</span>
+              <span id="playlist-detail-vibe-badge" class="vibe-badge theme-cyberpunk">Cyberpunk</span>
+            </div>
             <h3 id="playlist-detail-name" class="playlist-detail-name">Loading...</h3>
             <p id="playlist-detail-desc" class="playlist-detail-desc"></p>
+            
             <div class="playlist-actions">
               <button id="play-all-btn" class="btn-accent" onclick="app.playEntirePlaylist()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 <span>Play All</span>
               </button>
               <button class="btn-secondary" onclick="app.showHomeView()">Back to Catalog</button>
+              
+              <!-- Unconventional AI Magic Wand -->
+              <button id="playlist-ai-wand-btn" class="icon-btn custom-feature-btn" onclick="app.generatePoeticDescription()" title="AI Poetic Vibe Generator">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"></path><path d="M15 16v-2"></path><path d="M8 9h2"></path><path d="M20 9h2"></path><path d="M17.8 11.8 19 13"></path><path d="M15 9h.01"></path><path d="M17.8 6.2 19 5"></path><path d="m3 21 9-9"></path><path d="M12.2 6.2 11 5"></path></svg>
+              </button>
             </div>
+          </div>
+        </div>
+
+        <!-- Premium Playlist Dashboard Grid (Dynamic Stats & Insights) -->
+        <div id="playlist-dashboard-stats" class="playlist-dashboard-stats">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-tracks-count">0</div>
+            <div class="stat-label">Total Tracks</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-tracks-duration">0 min</div>
+            <div class="stat-label">Total Duration</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-tracks-energy">Chill</div>
+            <div class="stat-label">Playlist Vibe</div>
           </div>
         </div>
 
@@ -423,6 +471,20 @@
           <div class="form-group">
             <label for="playlist-desc-input" class="form-label">Description (Optional)</label>
             <input type="text" id="playlist-desc-input" class="form-input" placeholder="e.g. Soft acoustic and lo-fi tracks...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cover Photo (Optional)</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div id="playlist-cover-preview" style="width: 72px; height: 72px; border-radius: 12px; background: var(--bg-base); border: 1px dashed var(--border-glass); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                <svg id="playlist-cover-preview-placeholder" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <img id="playlist-cover-preview-img" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; display: none;">
+              </div>
+              <div style="flex: 1;">
+                <input type="file" id="playlist-cover-file" accept="image/*" style="display: none;" onchange="app.handlePlaylistCoverUpload(event)">
+                <button class="btn-secondary" onclick="document.getElementById('playlist-cover-file').click(); event.preventDefault();" style="padding: 8px 16px; font-size: 13px;">Choose File</button>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">PNG, JPG or WebP. Max 2MB.</div>
+              </div>
+            </div>
           </div>
           <div id="playlist-status-msg" class="status-msg hidden"></div>
         </div>

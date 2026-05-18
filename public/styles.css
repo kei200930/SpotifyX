@@ -866,6 +866,38 @@ body:not(.dark-theme) .trivia-card {
   transform: scale(1.1) !important;
 }
 
+.card-delete-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 91, 91, 0.15) !important;
+  border: 1px solid rgba(255, 91, 91, 0.3) !important;
+  color: #ff5b5b !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(-8px) scale(0.9);
+  transition: all var(--transition-normal);
+  z-index: 3;
+}
+
+.catalog-card:hover .card-delete-btn {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.card-delete-btn:hover {
+  background: #ff5b5b !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(255, 91, 91, 0.6);
+  transform: scale(1.1) !important;
+}
+
 .card-title {
   font-family: var(--font-heading);
   font-size: 16px;
@@ -2445,4 +2477,526 @@ body:not(.dark-theme) .cassette-bottom-head {
 #add-to-playlists-list .track-row:hover {
   border-color: var(--accent-primary) !important;
   background-color: var(--bg-glass-hover) !important;
+}
+
+/* Ambient glow auras behind playlists */
+.playlist-ambient-glow {
+  position: absolute;
+  top: -80px;
+  left: 10%;
+  width: 350px;
+  height: 350px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.1;
+  z-index: -1;
+  pointer-events: none;
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.playlist-ambient-glow.theme-cyberpunk { background: radial-gradient(circle, #1db954 0%, #a855f7 100%); }
+.playlist-ambient-glow.theme-sunset { background: radial-gradient(circle, #ec4899 0%, #f97316 100%); }
+.playlist-ambient-glow.theme-emerald { background: radial-gradient(circle, #10b981 0%, #eab308 100%); }
+.playlist-ambient-glow.theme-ocean { background: radial-gradient(circle, #06b6d4 0%, #3b82f6 100%); }
+.playlist-ambient-glow.theme-gold { background: radial-gradient(circle, #eab308 0%, #f97316 100%); }
+
+/* Premium Playlist Header Card & Theme backlights */
+.playlist-header-card {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  padding: 32px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  margin-bottom: 24px;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Beautiful dynamic neon backlights matching vibe themes */
+.playlist-header-card.theme-cyberpunk {
+  border-color: rgba(29, 185, 84, 0.15);
+  box-shadow: 0 12px 40px rgba(29, 185, 84, 0.04);
+}
+.playlist-header-card.theme-sunset {
+  border-color: rgba(236, 72, 153, 0.15);
+  box-shadow: 0 12px 40px rgba(236, 72, 153, 0.04);
+}
+.playlist-header-card.theme-emerald {
+  border-color: rgba(16, 185, 129, 0.15);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.04);
+}
+.playlist-header-card.theme-ocean {
+  border-color: rgba(6, 182, 212, 0.15);
+  box-shadow: 0 12px 40px rgba(6, 182, 212, 0.04);
+}
+.playlist-header-card.theme-gold {
+  border-color: rgba(234, 179, 8, 0.15);
+  box-shadow: 0 12px 40px rgba(234, 179, 8, 0.04);
+}
+
+/* Cover Wrapper & Vinyl Sleeve */
+.playlist-cover-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 230px;
+  height: 180px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.playlist-detail-img-wrapper {
+  z-index: 2;
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  box-shadow: 8px 12px 32px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.playlist-detail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-cover-container:hover .playlist-detail-img-wrapper {
+  transform: translateY(-2px);
+}
+
+/* Interactive Spinning Vinyl Record Peek Out */
+.vinyl-record-peek {
+  position: absolute;
+  right: 0;
+  top: 15px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: #0d0d0d;
+  box-shadow: inset 0 0 12px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.6);
+  z-index: 1;
+  transform: translateX(-15px);
+  transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.playlist-cover-container:hover .vinyl-record-peek {
+  transform: translateX(45px);
+}
+
+.vinyl-grooves {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #222 0px, #0f0f0f 2px, #333 4px);
+  opacity: 0.85;
+}
+
+.vinyl-label-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #111;
+  overflow: hidden;
+  border: 1.5px solid #000;
+  z-index: 2;
+}
+
+.vinyl-center-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.85);
+}
+
+.vinyl-center-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0d0d0d;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 3;
+}
+
+/* Vinyl Spinning Animations */
+.vinyl-record-peek.spinning {
+  animation: spinVinylNormal 10s linear infinite;
+}
+
+.playlist-cover-container:hover .vinyl-record-peek.spinning {
+  animation: spinVinylHover 10s linear infinite;
+}
+
+@keyframes spinVinylNormal {
+  0% { transform: translateX(-15px) rotate(0deg); }
+  100% { transform: translateX(-15px) rotate(360deg); }
+}
+
+@keyframes spinVinylHover {
+  0% { transform: translateX(45px) rotate(0deg); }
+  100% { transform: translateX(45px) rotate(360deg); }
+}
+
+.edit-cover-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 2;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+.playlist-detail-img-wrapper:hover .edit-cover-overlay {
+  opacity: 1;
+}
+
+.playlist-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.playlist-meta-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.playlist-meta-type {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.playlist-detail-name {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.playlist-detail-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 600px;
+}
+
+.playlist-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* Minimalist Vibe Badge */
+.vibe-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.vibe-badge.theme-cyberpunk { background: rgba(29, 185, 84, 0.1); color: #1db954; }
+.vibe-badge.theme-sunset { background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+.vibe-badge.theme-emerald { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.vibe-badge.theme-ocean { background: rgba(6, 182, 212, 0.1); color: #06b6d4; }
+.vibe-badge.theme-gold { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+
+/* Playlist Premium Stats Dashboard */
+.playlist-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 16px;
+  margin: 24px 0 32px 0;
+}
+
+/* Glassmorphic Stats Card with Neon Accent Indicators */
+.stat-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.stat-card:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 2px;
+  letter-spacing: -0.5px;
+}
+
+.stat-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+
+/* Theme Controller Picker Card */
+.theme-controller-card {
+  min-width: 150px;
+}
+
+.theme-inline-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* Interactive Color Dot Picker with Glowing Rings */
+.dot-picker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  position: relative;
+}
+
+.dot-picker:hover {
+  transform: scale(1.3);
+}
+
+/* Custom premium AI magic wand action button */
+.custom-feature-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.custom-feature-btn svg {
+  stroke: var(--accent-primary) !important;
+  width: 20px;
+  height: 20px;
+}
+
+.custom-feature-btn:hover {
+  transform: scale(1.05) !important;
+  background-color: rgba(29, 185, 84, 0.1) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Beautiful cascading theme colors for stats cards & header cards (Unified Neon Green) */
+.stat-card {
+  border-left: 3.5px solid #1db954 !important;
+}
+
+.playlist-header-card {
+  border-color: rgba(29, 185, 84, 0.15) !important;
+  box-shadow: 0 12px 40px rgba(29, 185, 84, 0.04) !important;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS OVERRIDES (SYMMETRIC & CLEAN)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .playlist-header-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+    padding: 24px 20px;
+  }
+
+  .playlist-cover-container {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .playlist-detail-img-wrapper {
+    width: 150px;
+    height: 150px;
+  }
+
+  .vinyl-record-peek {
+    display: none !important;
+  }
+
+  .playlist-detail-info {
+    align-items: center;
+    width: 100%;
+    text-align: center;
+  }
+
+  .playlist-meta-container {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .playlist-detail-name {
+    font-size: 24px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .playlist-detail-desc {
+    text-align: center;
+    font-size: 12px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .playlist-actions {
+    justify-content: center;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .playlist-actions button {
+    font-size: 12px;
+    padding: 8px 16px;
+  }
+
+  .playlist-dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 20px 0;
+  }
+
+  .stat-card {
+    padding: 10px 12px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .theme-controller-card {
+    grid-column: span 2;
+    align-items: center;
+  }
+
+  .theme-inline-picker {
+    justify-content: center;
+    margin-top: 4px;
+  }
+}
+
+/* ==========================================================================
+   PREMIUM VISUAL & INTERACTIVE UPGRADES
+   ========================================================================== */
+.catalog-card {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.catalog-card:hover {
+  box-shadow: 0 12px 35px rgba(29, 185, 84, 0.12);
+  border-color: rgba(29, 185, 84, 0.2) !important;
+}
+
+/* Premium micro-transition for Custom Playlist Create Button */
+#playlists-view-header-btn,
+.my-playlists-view .btn-accent {
+  box-shadow: 0 4px 15px rgba(29, 185, 84, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#playlists-view-header-btn:hover,
+.my-playlists-view .btn-accent:hover {
+  box-shadow: 0 6px 25px rgba(29, 185, 84, 0.45);
+  transform: translateY(-2px);
+}
+
+/* Premium styled remove button inside track rows */
+.remove-from-playlist-btn {
+  background: rgba(255, 91, 91, 0.08) !important;
+  border: 1px solid rgba(255, 91, 91, 0.2) !important;
+  color: #ff5b5b !important;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.remove-from-playlist-btn:hover {
+  background: #ff5b5b !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 91, 91, 0.5);
+  transform: scale(1.15) rotate(90deg) !important;
+}
+
+/* Active track coloring synced to Kaset's signature neon green brand color */
+.track-row.active {
+  background: rgba(29, 185, 84, 0.08) !important;
+  border-color: rgba(29, 185, 84, 0.2) !important;
+}
+
+.track-row.active .track-title,
+.track-row.active .track-number {
+  color: #1db954 !important;
 }

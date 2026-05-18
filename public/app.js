@@ -470,18 +470,87 @@ class KasetApp {
     
     document.getElementById('playlist-detail-name').textContent = name;
     document.getElementById('playlist-detail-desc').textContent = desc;
-    document.getElementById('playlist-detail-img').src = image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80';
+    
+    const coverUrl = image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80';
+    document.getElementById('playlist-detail-img').src = coverUrl;
+    
+    const vinylLabel = document.getElementById('vinyl-label-img');
+    if (vinylLabel) vinylLabel.src = coverUrl;
+    
+    const vinyl = document.getElementById('playlist-vinyl-record');
+    if (vinyl) {
+      if (this.state.isPlaying) {
+        vinyl.classList.add('spinning');
+      } else {
+        vinyl.classList.remove('spinning');
+      }
+    }
+
     document.getElementById('playlist-detail-type').textContent = type.toUpperCase().replace('_', ' ');
 
     this.dom.playlistTracksContainer.innerHTML = `<div class="loading-spinner"></div>`;
 
+    const glow = document.getElementById('playlist-ambient-glow');
+    const vibeBadge = document.getElementById('playlist-detail-vibe-badge');
+    const hoverEdit = document.getElementById('playlist-cover-hover-edit');
+    const aiWand = document.getElementById('playlist-ai-wand-btn');
+    const dashboard = document.getElementById('playlist-dashboard-stats');
+
     if (type === 'custom_playlist') {
+      this.state.currentViewedPlaylistId = id;
       const playlist = this.state.customPlaylists.find(p => p.id === id);
       const tracks = playlist ? playlist.tracks : [];
+      const theme = (playlist && playlist.theme) ? playlist.theme : 'cyberpunk';
+      
+      // Update parent view classes to cascade custom theme styles safely
+      const viewEl = document.getElementById('playlist-view');
+      if (viewEl) {
+        viewEl.classList.remove('theme-cyberpunk', 'theme-sunset', 'theme-emerald', 'theme-ocean', 'theme-gold');
+        viewEl.classList.add(`theme-${theme}`);
+      }
+      if (glow) {
+        glow.className = `playlist-ambient-glow theme-${theme}`;
+      }
+      if (vibeBadge) {
+        vibeBadge.style.display = 'inline-block';
+        vibeBadge.className = `vibe-badge theme-cyberpunk`;
+        vibeBadge.textContent = 'KASET VIBE';
+      }
+      
+      if (hoverEdit) hoverEdit.style.display = 'flex';
+      if (aiWand) aiWand.style.display = 'flex';
+      if (dashboard) {
+        dashboard.style.display = 'grid';
+        
+        // Compute stats
+        const count = tracks.length;
+        const totalSec = tracks.reduce((acc, t) => acc + (t.duration || 210), 0);
+        const durationMin = Math.round(totalSec / 60);
+        
+        let vibeName = "Chill";
+        if (theme === 'cyberpunk') vibeName = "Cyberpunk";
+        else if (theme === 'sunset') vibeName = "Sunset";
+        else if (theme === 'emerald') vibeName = "Forest Zen";
+        else if (theme === 'ocean') vibeName = "Deep Blue";
+        else if (theme === 'gold') vibeName = "Gold Jazz";
+        
+        document.getElementById('stat-tracks-count').textContent = count;
+        document.getElementById('stat-tracks-duration').textContent = `${durationMin} min`;
+        document.getElementById('stat-tracks-energy').textContent = vibeName;
+      }
+
       this.state.tracksQueue = tracks;
       this.renderPlaylistTracks(tracks, true, id);
       return;
     }
+
+    // Standard Spotify playlist
+    this.state.currentViewedPlaylistId = null;
+    if (glow) glow.className = 'playlist-ambient-glow theme-cyberpunk';
+    if (vibeBadge) vibeBadge.style.display = 'none';
+    if (hoverEdit) hoverEdit.style.display = 'none';
+    if (aiWand) aiWand.style.display = 'none';
+    if (dashboard) dashboard.style.display = 'none';
 
     try {
       const response = await fetch(`/api/spotify/tracks?id=${id}&type=${type}`);
@@ -769,18 +838,23 @@ class KasetApp {
 
   onPlayStateChange(isPlaying) {
     this.state.isPlaying = isPlaying;
+    
+    const vinyl = document.getElementById('playlist-vinyl-record');
+    
     if (isPlaying) {
       this.dom.iconPlay.classList.add('hidden');
       this.dom.iconPause.classList.remove('hidden');
       if (this.dom.popupIconPlay) this.dom.popupIconPlay.classList.add('hidden');
       if (this.dom.popupIconPause) this.dom.popupIconPause.classList.remove('hidden');
       this.dom.spinningCassette.classList.add('playing');
+      if (vinyl) vinyl.classList.add('spinning');
     } else {
       this.dom.iconPlay.classList.remove('hidden');
       this.dom.iconPause.classList.add('hidden');
       if (this.dom.popupIconPlay) this.dom.popupIconPlay.classList.remove('hidden');
       if (this.dom.popupIconPause) this.dom.popupIconPause.classList.add('hidden');
       this.dom.spinningCassette.classList.remove('playing');
+      if (vinyl) vinyl.classList.remove('spinning');
     }
   }
 
@@ -932,8 +1006,45 @@ class KasetApp {
       this.dom.createPlaylistModal.classList.add('hidden');
       document.getElementById('playlist-name-input').value = '';
       document.getElementById('playlist-desc-input').value = '';
+      document.getElementById('playlist-theme-select').value = 'cyberpunk';
+      
+      const fileInput = document.getElementById('playlist-cover-file');
+      if (fileInput) fileInput.value = '';
+      
+      const previewImg = document.getElementById('playlist-cover-preview-img');
+      const placeholder = document.getElementById('playlist-cover-preview-placeholder');
+      if (previewImg) previewImg.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'block';
+      
+      this.state.newPlaylistCoverBase64 = null;
       document.getElementById('playlist-status-msg').classList.add('hidden');
     }
+  }
+
+  handlePlaylistCoverUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('File size exceeds 2MB limit.');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target.result;
+      this.state.newPlaylistCoverBase64 = base64;
+      
+      const previewImg = document.getElementById('playlist-cover-preview-img');
+      const placeholder = document.getElementById('playlist-cover-preview-placeholder');
+      if (previewImg) {
+        previewImg.src = base64;
+        previewImg.style.display = 'block';
+      }
+      if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
   }
 
   async saveNewPlaylist() {
@@ -943,6 +1054,7 @@ class KasetApp {
 
     const name = nameInput.value.trim();
     const desc = descInput.value.trim();
+    const theme = 'cyberpunk';
 
     if (!name) {
       statusMsg.textContent = 'Playlist name is required.';
@@ -955,7 +1067,8 @@ class KasetApp {
       id: 'custom_' + Date.now(),
       name: name,
       description: desc || 'Custom user curated playlist.',
-      image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80',
+      image: this.state.newPlaylistCoverBase64 || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80',
+      theme: theme,
       tracks: []
     };
 
@@ -996,15 +1109,13 @@ class KasetApp {
           <button class="card-play-btn" onclick="event.stopPropagation(); app.playCustomPlaylistDirectly('${pl.id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           </button>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-          <div style="flex: 1; min-width: 0;">
-            <h4 class="card-title" style="margin-bottom: 4px;">${pl.name}</h4>
-            <p class="card-subtitle">${pl.tracks.length} tracks</p>
-          </div>
-          <button onclick="event.stopPropagation(); app.deletePlaylist('${pl.id}')" style="background: none; border: none; color: #ff5b5b; cursor: pointer; padding: 4px; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Hapus Playlist">
+          <button class="card-delete-btn" onclick="event.stopPropagation(); app.deletePlaylist('${pl.id}')" title="Hapus Playlist">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
+        </div>
+        <div style="padding: 12px 4px 4px 4px;">
+          <h4 class="card-title" style="margin-bottom: 4px; font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${pl.name}</h4>
+          <p class="card-subtitle" style="font-size: 12px; color: var(--text-muted);">${pl.tracks.length} tracks</p>
         </div>
       </div>
     `).join('');
@@ -1118,6 +1229,124 @@ class KasetApp {
       // Re-render current tracks in this playlist
       this.state.tracksQueue = playlist.tracks;
       this.renderPlaylistTracks(playlist.tracks, true, playlistId);
+    }
+  }
+
+  triggerEditPlaylistCover() {
+    const fileInput = document.getElementById('playlist-detail-cover-file');
+    if (fileInput) fileInput.click();
+  }
+
+  handleEditPlaylistCover(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ukuran berkas tidak boleh melebihi 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result;
+      const playlistId = this.state.currentViewedPlaylistId;
+      if (!playlistId) return;
+
+      const playlist = this.state.customPlaylists.find(p => p.id === playlistId);
+      if (playlist) {
+        playlist.image = base64;
+        
+        // Update view UI immediately
+        const detailImg = document.getElementById('playlist-detail-img');
+        if (detailImg) detailImg.src = base64;
+
+        const vinylLabel = document.getElementById('vinyl-label-img');
+        if (vinylLabel) vinylLabel.src = base64;
+
+        await this.syncPlaylistsWithBackend();
+        this.renderCustomPlaylistsGrid();
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async changeCurrentPlaylistTheme(theme) {
+    const playlistId = this.state.currentViewedPlaylistId;
+    if (!playlistId) return;
+
+    const playlist = this.state.customPlaylists.find(p => p.id === playlistId);
+    if (playlist) {
+      playlist.theme = theme;
+
+      // Update parent view & ambient glow classes to cascade theme styles safely
+      const viewEl = document.getElementById('playlist-view');
+      if (viewEl) {
+        viewEl.classList.remove('theme-cyberpunk', 'theme-sunset', 'theme-emerald', 'theme-ocean', 'theme-gold');
+        viewEl.classList.add(`theme-${theme}`);
+      }
+      const glow = document.getElementById('playlist-ambient-glow');
+      if (glow) glow.className = `playlist-ambient-glow theme-${theme}`;
+
+      const vibeBadge = document.getElementById('playlist-detail-vibe-badge');
+      if (vibeBadge) {
+        vibeBadge.className = `vibe-badge theme-${theme}`;
+        vibeBadge.textContent = theme.charAt(0).toUpperCase() + theme.slice(1);
+      }
+
+      // Update Vibe Name in dashboard
+      let vibeName = "Chill";
+      if (theme === 'cyberpunk') vibeName = "Cyberpunk";
+      else if (theme === 'sunset') vibeName = "Sunset";
+      else if (theme === 'emerald') vibeName = "Forest Zen";
+      else if (theme === 'ocean') vibeName = "Deep Blue";
+      else if (theme === 'gold') vibeName = "Gold Jazz";
+      
+      const energyLabel = document.getElementById('stat-tracks-energy');
+      if (energyLabel) energyLabel.textContent = vibeName;
+
+      await this.syncPlaylistsWithBackend();
+      this.renderCustomPlaylistsGrid();
+    }
+  }
+
+  async generatePoeticDescription() {
+    const playlistId = this.state.currentViewedPlaylistId;
+    if (!playlistId) return;
+
+    const playlist = this.state.customPlaylists.find(p => p.id === playlistId);
+    if (!playlist) return;
+
+    const poetryTemplates = [
+      `Sebuah gelombang petualangan audio yang melintasi dimensi ${playlist.theme || 'retro'}. Dirancang khusus untuk menemani ruang sunyi dan mengembara dalam imajinasi nada yang mendalam.`,
+      `Alunan frekuensi penuh jiwa. Menggabungkan ketukan ritmis dengan melodi melankolis, menciptakan harmoni sempurna untuk sore yang santai dan malam yang tak berujung.`,
+      `Kumpulan melodi pilihan yang mengekspresikan getaran hati. Mengalun indah seperti aliran sungai yang tenang, membawa kedamaian dan membakar kembali semangat yang redup.`,
+      `Manifestasi visualisasi audio premium. Setiap trek dipilih secara cermat untuk menciptakan pengalaman mendengarkan yang magis, sinematik, dan penuh kenangan indah.`
+    ];
+
+    // Pick a random template
+    const randomPoetry = poetryTemplates[Math.floor(Math.random() * poetryTemplates.length)];
+    
+    // Add visual feedback
+    const descEl = document.getElementById('playlist-detail-desc');
+    const wandBtn = document.getElementById('playlist-ai-wand-btn');
+    
+    if (wandBtn) {
+      wandBtn.style.transform = 'scale(1.3) rotate(360deg)';
+      wandBtn.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      setTimeout(() => {
+        wandBtn.style.transform = 'none';
+      }, 500);
+    }
+
+    if (descEl) {
+      descEl.style.opacity = '0';
+      descEl.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => {
+        playlist.description = randomPoetry;
+        descEl.textContent = randomPoetry;
+        descEl.style.opacity = '1';
+        this.syncPlaylistsWithBackend();
+      }, 300);
     }
   }
 

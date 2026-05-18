@@ -14,7 +14,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // In-memory cache for Spotify tokens and search results to optimize performance
@@ -433,8 +434,36 @@ app.get('/api/audio/stream', async (req, res) => {
   const { videoId } = req.query;
   if (!videoId) return res.status(400).send('No videoId provided');
 
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const pipedInstances = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.lunar.icu',
+    'https://pipedapi.tokhmi.xyz',
+    'https://piped-api.garudalinux.org',
+    'https://api.piped.yt',
+    'https://pipedapi.privacydev.net',
+    'https://pipedapi.synapse.net.in'
+  ];
 
+  // TIER 1: Piped API Direct Redirect (Highly Stable, High Speed Google Video CDN)
+  for (const apiBase of pipedInstances) {
+    try {
+      console.log(`Trying Piped API mirror: ${apiBase}/streams/${videoId}`);
+      const response = await axios.get(`${apiBase}/streams/${videoId}`, { timeout: 3500 });
+      if (response.data && response.data.audioStreams && response.data.audioStreams.length > 0) {
+        const streams = response.data.audioStreams;
+        const bestStream = streams.find(s => s.format === 'M4A' || s.mimeType.includes('mp4')) || streams[0];
+        if (bestStream && bestStream.url) {
+          console.log(`Successfully retrieved high-speed direct audio stream URL from Piped! Redirecting client...`);
+          return res.redirect(bestStream.url);
+        }
+      }
+    } catch (err) {
+      console.log(`Piped API mirror ${apiBase} failed/skipped:`, err.message);
+    }
+  }
+
+  // TIER 2: Fallback to local ytdl stream proxy if Piped fails
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
   try {
     console.log(`Streaming YouTube audio via @distube/ytdl-core for videoId: ${videoId}`);
     const stream = ytdl(url, { filter: 'audioonly', quality: 'lowest' });
