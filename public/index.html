@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaset - Premium Minimalist Music Player & Catalog</title>
+  <meta name="description": "Experience pure music playback with a clean, minimalist design, Spotify catalog integration, full-duration audio, and realistic spinning cassette animation.">
+  <!-- Google Fonts: Inter and Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Vanilla CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app-container" class="app-container dark-theme">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+          <span class="brand-name">Kaset</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Navigation</div>
+        <button id="nav-home" class="nav-item active" onclick="app.showHomeView()">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span>Home</span>
+        </button>
+        <button id="nav-explore" class="nav-item" onclick="app.showExploreView()">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+          <span>Explore Catalog</span>
+        </button>
+        <button id="nav-cassette" class="nav-item" onclick="app.toggleCassetteView()">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"></rect><circle cx="8" cy="12" r="2"></circle><circle cx="16" cy="12" r="2"></circle><path d="M11 16h2"></path></svg>
+          <span>Cassette Player</span>
+        </button>
+
+        <div class="nav-section-title">Configuration</div>
+        <button id="nav-settings" class="nav-item" onclick="app.openSettingsModal()">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          <span>Spotify API Config</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="api-status-box" id="api-status-box">
+          <div class="status-indicator active" id="status-dot"></div>
+          <div class="status-text">
+            <span class="status-label">Catalog Source:</span>
+            <span id="api-source-text">Fallback Library</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN APPLICATION AREA -->
+    <main id="main-content" class="main-content">
+      
+      <!-- TOP NAVIGATION BAR -->
+      <header id="topbar" class="topbar">
+        <div class="search-container">
+          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <input type="text" id="search-input" class="search-input" placeholder="Search tracks, artists, albums..." onkeyup="app.handleSearch(event)">
+          <button id="clear-search-btn" class="clear-search-btn hidden" onclick="app.clearSearch()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="theme-toggle" class="icon-btn" onclick="app.toggleTheme()" title="Toggle Theme">
+            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+          </button>
+          <button id="topbar-settings-btn" class="btn-primary" onclick="app.openSettingsModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"></path></svg>
+            <span>API Settings</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- VIEW 1: HOME VIEW -->
+      <!-- VIEW 1: HOME VIEW -->
+      <div id="home-view" class="view-content active">
+        <h1 class="sr-only">Kaset Music Catalog</h1>
+        <!-- DYNAMIC HERO BANNER -->
+        <section class="hero-banner" id="dynamic-hero-banner">
+          <div class="hero-content">
+            <span class="hero-tag" id="hero-tag">#1 GLOBAL TRENDING</span>
+            <h2 class="hero-title" id="hero-track-title">Espresso</h2>
+            <p class="hero-desc" id="hero-track-artist">Sabrina Carpenter • Alunan pop berenergi tinggi penakluk tangga lagu dunia saat ini.</p>
+            <div class="hero-buttons">
+              <button class="btn-accent" id="hero-play-btn" onclick="app.playHeroTrack()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>Play Quick Hit</span>
+              </button>
+              <button class="btn-secondary" onclick="app.showExploreView()">Browse Catalog</button>
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="hero-cassette-mock">
+              <div class="mock-wheel left"></div>
+              <div class="mock-wheel right"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- INTERACTIVE MOOD & GENRE STATION -->
+        <section class="catalog-section mood-station-section">
+          <div class="section-header">
+            <h3 class="section-title">Mood & Genre Station</h3>
+            <span class="section-subtitle">Pilih suasana hati Anda untuk rekomendasi playlist instan</span>
+          </div>
+          <div class="mood-pills-container">
+            <button class="mood-pill active" onclick="app.loadMood('energize', this)">Energize & Hype</button>
+            <button class="mood-pill" onclick="app.loadMood('chill', this)">Late Night Chill</button>
+            <button class="mood-pill" onclick="app.loadMood('focus', this)">Deep Focus</button>
+            <button class="mood-pill" onclick="app.loadMood('acoustic', this)">Acoustic Soul</button>
+            <button class="mood-pill" onclick="app.loadMood('workout', this)">Gym Workout</button>
+          </div>
+        </section>
+
+        <!-- TRENDING HITMAKERS SECTION -->
+        <section class="catalog-section hitmakers-section">
+          <div class="section-header">
+            <h3 class="section-title">Trending Hitmakers</h3>
+            <span class="section-subtitle">Artis-artis terhangat dengan tren pemutaran tertinggi pekan ini</span>
+          </div>
+          <div id="hitmakers-grid" class="hitmakers-grid">
+            <!-- Dynamic Hitmakers Injected Here -->
+            <div class="loading-spinner"></div>
+          </div>
+        </section>
+
+        <!-- VIRAL CHARTS SECTION -->
+        <section class="catalog-section viral-section">
+          <div class="section-header">
+            <h3 class="section-title">Viral Charts</h3>
+            <span class="section-subtitle">Lagu-lagu paling viral dan sering dibagikan di media sosial</span>
+          </div>
+          <div id="viral-charts-grid" class="viral-grid">
+            <!-- Dynamic Viral Tracks Injected Here -->
+            <div class="loading-spinner"></div>
+          </div>
+        </section>
+
+        <!-- FEATURED PLAYLISTS SECTION -->
+        <section class="catalog-section">
+          <div class="section-header">
+            <h3 class="section-title">Trending Playlists</h3>
+            <span class="section-subtitle">Kurasi daftar lagu terpopuler dari berbagai genre</span>
+          </div>
+          <div id="featured-playlists-grid" class="catalog-grid">
+            <!-- Dynamic Playlists Injected Here -->
+            <div class="loading-spinner"></div>
+          </div>
+        </section>
+
+        <!-- NEW RELEASES SECTION -->
+        <section class="catalog-section">
+          <div class="section-header">
+            <h3 class="section-title">New Releases</h3>
+            <span class="section-subtitle">Album terbaru & singel hangat dari musisi top dunia</span>
+          </div>
+          <div id="new-releases-grid" class="catalog-grid">
+            <!-- Dynamic New Releases Injected Here -->
+            <div class="loading-spinner"></div>
+          </div>
+        </section>
+
+        <!-- MUSIC LORE & TRIVIA CARD -->
+        <section class="catalog-section trivia-section">
+          <div class="trivia-card">
+            <div class="trivia-header">
+              <span class="trivia-tag">DID YOU KNOW? • CASSETTE LORE</span>
+              <button class="btn-secondary small" onclick="app.loadTrivia()" title="Ganti Info Trivia">
+                <span>Next Trivia</span>
+              </button>
+            </div>
+            <h4 id="trivia-title" class="trivia-title">Sejarah Pita Kaset</h4>
+            <p id="trivia-fact" class="trivia-fact">Pita kaset pertama kali diperkenalkan oleh Philips pada tahun 1963 di pameran Berlin Radio Show sebagai media perekam suara portabel.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- VIEW 2: SEARCH RESULTS VIEW -->
+      <div id="search-view" class="view-content hidden">
+        <div class="section-header">
+          <h3 class="section-title" id="search-title">Search Results</h3>
+          <button class="btn-secondary small" onclick="app.showHomeView()">Back to Home</button>
+        </div>
+        <div id="search-results-grid" class="tracks-list-container">
+          <!-- Dynamic Search Results Injected Here -->
+        </div>
+      </div>
+
+      <!-- VIEW 3: PLAYLIST / ALBUM TRACKS VIEW -->
+      <div id="playlist-view" class="view-content hidden">
+        <div class="playlist-header-card">
+          <img id="playlist-detail-img" src="" alt="Playlist Cover" class="playlist-detail-img">
+          <div class="playlist-detail-info">
+            <span id="playlist-detail-type" class="playlist-meta-type">PLAYLIST</span>
+            <h3 id="playlist-detail-name" class="playlist-detail-name">Loading...</h3>
+            <p id="playlist-detail-desc" class="playlist-detail-desc"></p>
+            <div class="playlist-actions">
+              <button id="play-all-btn" class="btn-accent" onclick="app.playEntirePlaylist()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>Play All</span>
+              </button>
+              <button class="btn-secondary" onclick="app.showHomeView()">Back to Catalog</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="playlist-tracks-container" class="tracks-list-container">
+          <!-- Dynamic Playlist Tracks Injected Here -->
+        </div>
+      </div>
+
+      <!-- VIEW 4: DEDICATED CASSETTE TAPE VIEW -->
+      <div id="cassette-view" class="view-content hidden cassette-view-container">
+        <div class="cassette-view-header">
+          <h3 class="section-title">Live Cassette Player</h3>
+          <button class="btn-secondary small" onclick="app.toggleCassetteView()">Close View</button>
+        </div>
+        
+        <div class="cassette-showcase">
+          <!-- THE CASSETTE TAPE -->
+          <div id="spinning-cassette" class="cassette-tape">
+            <div class="cassette-body">
+              <!-- Screws -->
+              <div class="screw top-left"></div>
+              <div class="screw top-right"></div>
+              <div class="screw bottom-left"></div>
+              <div class="screw bottom-right"></div>
+              
+              <!-- Cassette Label -->
+              <div class="cassette-label">
+                <div class="label-header">
+                  <span class="label-brand">KASET STEREO</span>
+                  <span class="label-side">SIDE A</span>
+                </div>
+                
+                <div class="label-track-info">
+                  <div id="cassette-track-title" class="cassette-title">No Track Selected</div>
+                  <div id="cassette-track-artist" class="cassette-artist">Select a track from the catalog</div>
+                </div>
+
+                <!-- Tape Window -->
+                <div class="tape-window-container">
+                  <div class="tape-window">
+                    <div id="left-reel" class="tape-reel left">
+                      <div class="reel-teeth"></div>
+                    </div>
+                    <div class="tape-bridge">
+                      <div class="magnetic-tape"></div>
+                    </div>
+                    <div id="right-reel" class="tape-reel right">
+                      <div class="reel-teeth"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="label-footer">
+                  <span class="dolby-text">FULL DURATION NR</span>
+                  <span class="eq-text">NORMAL BIAS 120µs</span>
+                </div>
+              </div>
+
+              <!-- Bottom Trapezoid / Head Area -->
+              <div class="cassette-bottom-head">
+                <div class="head-hole left"></div>
+                <div class="head-hole center"></div>
+                <div class="head-hole right"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visualizer / Status below cassette -->
+          <div class="cassette-status-panel">
+            <div class="audio-source-badge" id="audio-source-badge">Audio Source: Ready</div>
+            <div class="visualizer-bars" id="visualizer-bars">
+              <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+              <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+              <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- BOTTOM MUSIC PLAYER BAR -->
+    <footer id="player-bar" class="player-bar">
+      <!-- Track Info -->
+      <div class="player-track-info" onclick="app.openSongPopup()" title="Click to open Now Playing Popup" style="cursor: pointer;">
+        <img id="player-cover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80" alt="Track Cover" class="player-cover">
+        <div class="player-meta">
+          <div id="player-title" class="player-title">Welcome to Kaset</div>
+          <div id="player-artist" class="player-artist">Pick a song to play</div>
+        </div>
+      </div>
+
+      <!-- Controls & Progress -->
+      <div class="player-center">
+        <div class="player-controls">
+          <button id="btn-shuffle" class="control-btn" onclick="app.toggleShuffle()" title="Shuffle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+          </button>
+          <button id="btn-prev" class="control-btn" onclick="app.prevTrack()" title="Previous Track">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+          </button>
+          <button id="btn-play-pause" class="play-pause-btn" onclick="app.togglePlayPause()" title="Play/Pause">
+            <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <svg id="icon-pause" class="hidden" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          </button>
+          <button id="btn-next" class="control-btn" onclick="app.nextTrack()" title="Next Track">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+          </button>
+          <button id="btn-repeat" class="control-btn" onclick="app.toggleRepeat()" title="Repeat">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          </button>
+        </div>
+        <div class="player-progress-container">
+          <span id="time-current" class="time-display">0:00</span>
+          <div id="progress-bar" class="progress-bar" onclick="app.seekAudio(event)">
+            <div id="progress-filled" class="progress-filled"></div>
+          </div>
+          <span id="time-total" class="time-display">3:30</span>
+        </div>
+      </div>
+
+      <!-- Right: Volume & Cassette Toggle -->
+      <div class="player-right">
+        <div class="volume-container">
+          <svg class="volume-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+          <input type="range" id="volume-slider" class="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="app.setVolume(this.value)">
+        </div>
+        <button id="btn-toggle-cassette" class="btn-cassette-toggle" onclick="app.toggleCassetteView()" title="Toggle Cassette View">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"></rect><circle cx="8" cy="12" r="2"></circle><circle cx="16" cy="12" r="2"></circle><path d="M11 16h2"></path></svg>
+          <span class="toggle-text">Cassette</span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- MODAL: SPOTIFY API SETTINGS -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">Spotify API Configuration</h3>
+          <button class="icon-btn close-modal" onclick="app.closeSettingsModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            To view live catalog data directly from your Spotify Web API app, enter your Client ID and Client Secret below. Otherwise, the app will continue using our high-quality built-in fallback catalog.
+          </p>
+
+          <div class="form-group">
+            <label for="spotify-client-id" class="form-label">Spotify Client ID</label>
+            <input type="text" id="spotify-client-id" class="form-input" placeholder="e.g. 5a4b3c2d1e0f...">
+          </div>
+
+          <div class="form-group">
+            <label for="spotify-client-secret" class="form-label">Spotify Client Secret</label>
+            <input type="password" id="spotify-client-secret" class="form-input" placeholder="e.g. 9f8e7d6c5b4a...">
+          </div>
+
+          <div id="settings-status-msg" class="status-msg hidden"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="app.closeSettingsModal()">Cancel</button>
+          <button id="save-settings-btn" class="btn-accent" onclick="app.saveSpotifyCredentials()">
+            <span>Save & Authenticate</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: NOW PLAYING SONG POPUP -->
+    <div id="song-popup-modal" class="modal-overlay hidden" onclick="if(event.target === this) app.closeSongPopup()">
+      <div class="modal-card popup-player-card">
+        <div class="modal-header" style="width: 100%; margin-bottom: 16px;">
+          <div class="popup-header-info">
+            <h3 class="modal-title" style="font-size: 20px;">Now Playing</h3>
+            <span class="audio-source-badge" id="popup-source-badge" style="font-size: 11px; padding: 4px 8px;">Ready</span>
+          </div>
+          <div class="popup-header-actions">
+            <button id="popup-theme-toggle" class="icon-btn" onclick="app.toggleTheme()" title="Toggle Theme">
+              <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+            </button>
+            <button class="icon-btn close-modal" onclick="app.closeSongPopup()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="popup-player-body">
+          <div class="popup-cover-container">
+            <img id="popup-cover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80" alt="Track Cover" class="popup-cover">
+          </div>
+          <div class="popup-track-meta">
+            <h4 id="popup-title" class="popup-title">No Track Selected</h4>
+            <p id="popup-artist" class="popup-artist">Select a track from the catalog</p>
+          </div>
+
+          <!-- Mini Spinning Cassette Reel in Popup -->
+          <div class="popup-mini-cassette">
+            <div class="mini-reel left"><div class="reel-teeth" style="width: 8px; height: 8px; background: var(--accent-primary); border-radius: 50%; position: absolute; top: 12px; left: 12px;"></div></div>
+            <div style="font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--text-muted);">KASET STEREO TAPE</div>
+            <div class="mini-reel right"><div class="reel-teeth" style="width: 8px; height: 8px; background: var(--accent-primary); border-radius: 50%; position: absolute; top: 12px; left: 12px;"></div></div>
+          </div>
+
+          <!-- Popup Player Controls -->
+          <div class="popup-controls">
+            <button class="icon-btn" onclick="app.prevTrack()" title="Previous Track">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+            </button>
+            <button class="play-pause-btn" onclick="app.togglePlayPause()" title="Play/Pause" style="width: 54px; height: 54px;">
+              <svg id="popup-icon-play" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg id="popup-icon-pause" class="hidden" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </button>
+            <button class="icon-btn" onclick="app.nextTrack()" title="Next Track">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Audio Element -->
+  <audio id="main-audio-player"></audio>
+
+  <!-- Vanilla JS Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
