@@ -294,6 +294,10 @@
 
     <!-- BOTTOM MUSIC PLAYER BAR -->
     <footer id="player-bar" class="player-bar">
+      <!-- Mobile Pull / Swipe Handle -->
+      <div id="mobile-pull-handle" class="mobile-pull-handle" onclick="app.toggleMobilePlayerBar(event)" title="Toggle Player Bar">
+        <div class="pull-bar-line"></div>
+      </div>
       <!-- Track Info -->
       <div class="player-track-info" onclick="app.openSongPopup()" title="Click to open Now Playing Popup" style="cursor: pointer;">
         <img id="player-cover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80" alt="Track Cover" class="player-cover">

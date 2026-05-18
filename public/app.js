@@ -119,6 +119,40 @@ class KasetApp {
         this.togglePlayPause();
       }
     });
+
+    // Touch swipe support for mobile player bar
+    let touchStartY = 0;
+    const playerBar = document.getElementById('player-bar');
+    if (playerBar) {
+      playerBar.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      
+      playerBar.addEventListener('touchend', (e) => {
+        const touchEndY = e.changedTouches[0].clientY;
+        const diffY = touchEndY - touchStartY;
+        
+        // If swiped down more than 30px, collapse
+        if (diffY > 30) {
+          playerBar.classList.add('collapsed');
+        } 
+        // If swiped up more than 30px, expand
+        else if (diffY < -30) {
+          playerBar.classList.remove('collapsed');
+        }
+      }, { passive: true });
+    }
+  }
+
+  /**
+   * Toggle Mobile Player Bar (Collapse / Expand)
+   */
+  toggleMobilePlayerBar(event) {
+    if (event) event.stopPropagation();
+    const playerBar = document.getElementById('player-bar');
+    if (playerBar) {
+      playerBar.classList.toggle('collapsed');
+    }
   }
 
   /**
