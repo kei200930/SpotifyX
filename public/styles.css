@@ -2419,3 +2419,30 @@ body:not(.dark-theme) .cassette-bottom-head {
     height: 10px;
   }
 }
+
+/* Custom Playlist Action Buttons & Styles */
+.add-to-playlist-btn:hover {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: #ffffff !important;
+  transform: scale(1.1);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.remove-from-playlist-btn:hover {
+  background: rgba(255, 91, 91, 0.15) !important;
+  color: #ff3333 !important;
+  transform: scale(1.1);
+}
+
+#my-playlists-view .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+#add-to-playlists-list .track-row:hover {
+  border-color: var(--accent-primary) !important;
+  background-color: var(--bg-glass-hover) !important;
+}

@@ -5,6 +5,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 const yts = require('yt-search');
 const ytdl = require('@distube/ytdl-core');
+const fs = require('fs');
 
 
 dotenv.config();
@@ -593,6 +594,35 @@ app.get('/api/trending/mood', (req, res) => {
 app.get('/api/trivia', (req, res) => {
   const randomTrivia = trendingPool.trivia[Math.floor(Math.random() * trendingPool.trivia.length)];
   res.json({ success: true, trivia: randomTrivia });
+});
+
+// 4. Playlist Persistence API
+const PLAYLISTS_FILE = process.env.NODE_ENV === 'production' 
+  ? path.join('/tmp', 'playlists.json') 
+  : path.join(__dirname, 'playlists.json');
+
+app.get('/api/playlists', (req, res) => {
+  try {
+    if (fs.existsSync(PLAYLISTS_FILE)) {
+      const fileData = fs.readFileSync(PLAYLISTS_FILE, 'utf8');
+      return res.json({ success: true, playlists: JSON.parse(fileData) });
+    }
+    res.json({ success: true, playlists: [] });
+  } catch (error) {
+    console.error('Error reading playlists:', error);
+    res.status(500).json({ success: false, message: 'Failed to read playlists' });
+  }
+});
+
+app.post('/api/playlists', (req, res) => {
+  try {
+    const { playlists } = req.body;
+    fs.writeFileSync(PLAYLISTS_FILE, JSON.stringify(playlists || [], null, 2), 'utf8');
+    res.json({ success: true, message: 'Playlists saved successfully' });
+  } catch (error) {
+    console.error('Error saving playlists:', error);
+    res.status(500).json({ success: false, message: 'Failed to save playlists' });
+  }
 });
 
 // Fallback route for SPA / static files

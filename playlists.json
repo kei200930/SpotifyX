@@ -1,0 +1,43 @@
+[
+  {
+    "id": "custom_1779104188367",
+    "name": "APA",
+    "description": "Custom user curated playlist.",
+    "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
+    "tracks": []
+  },
+  {
+    "id": "custom_1779104475565",
+    "name": "Indie Anthems",
+    "description": "Custom user curated playlist.",
+    "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
+    "tracks": [
+      {
+        "id": "tr_1",
+        "title": "Starboy",
+        "artist": "The Weeknd",
+        "album": "Starboy",
+        "duration": 230,
+        "image": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500&auto=format&fit=crop&q=80",
+        "preview_url": "https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95"
+      }
+    ]
+  },
+  {
+    "id": "custom_1779104608884",
+    "name": "Midnight Vibes",
+    "description": "Custom user curated playlist.",
+    "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
+    "tracks": [
+      {
+        "id": "tr_1",
+        "title": "Starboy",
+        "artist": "The Weeknd",
+        "album": "Starboy",
+        "duration": 230,
+        "image": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500&auto=format&fit=crop&q=80",
+        "preview_url": "https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95"
+      }
+    ]
+  }
+]

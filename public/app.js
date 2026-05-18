@@ -16,7 +16,9 @@ class KasetApp {
       isDarkTheme: true,
       currentView: 'home-view',
       catalogSource: 'fallback',
-      searchQuery: ''
+      searchQuery: '',
+      customPlaylists: [],
+      trackAddingToPlaylist: null
     };
 
     // DOM Elements Cache
@@ -28,18 +30,25 @@ class KasetApp {
       navHome: document.getElementById('nav-home'),
       navExplore: document.getElementById('nav-explore'),
       navCassette: document.getElementById('nav-cassette'),
+      navPlaylists: document.getElementById('nav-playlists'),
       
       // Views
       homeView: document.getElementById('home-view'),
       searchView: document.getElementById('search-view'),
       playlistView: document.getElementById('playlist-view'),
       cassetteView: document.getElementById('cassette-view'),
+      myPlaylistsView: document.getElementById('my-playlists-view'),
       
       // Grids & Containers
       featuredGrid: document.getElementById('featured-playlists-grid'),
       newReleasesGrid: document.getElementById('new-releases-grid'),
       searchResultsGrid: document.getElementById('search-results-grid'),
       playlistTracksContainer: document.getElementById('playlist-tracks-container'),
+      playlistsGrid: document.getElementById('playlists-grid'),
+      
+      // Modals
+      createPlaylistModal: document.getElementById('create-playlist-modal'),
+      addToPlaylistModal: document.getElementById('add-to-playlist-modal'),
       
       // Topbar
       searchInput: document.getElementById('search-input'),
@@ -95,6 +104,7 @@ class KasetApp {
     this.setupEventListeners();
     this.loadTheme();
     this.loadSavedCredentials();
+    await this.loadPlaylists();
     await this.fetchFeaturedCatalog();
     await this.loadTrending();
   }
@@ -294,6 +304,7 @@ class KasetApp {
       if (data.success) {
         // 1. Update Dynamic Hero Banner
         this.state.heroTrack = data.hero_track;
+        this.state.viralTracks = data.viral_charts;
         document.getElementById('hero-tag').textContent = data.hero_track.tag || '#1 GLOBAL TRENDING';
         document.getElementById('hero-track-title').textContent = data.hero_track.title;
         document.getElementById('hero-track-artist').textContent = `${data.hero_track.artist} • Alunan musik trending penakluk tangga lagu dunia saat ini.`;
@@ -454,18 +465,23 @@ class KasetApp {
     `).join('');
   }
 
-  /**
-   * Open Playlist / Album Detail View
-   */
   async openPlaylist(id, name, desc, image, type) {
     this.switchView('playlist-view');
     
     document.getElementById('playlist-detail-name').textContent = name;
     document.getElementById('playlist-detail-desc').textContent = desc;
     document.getElementById('playlist-detail-img').src = image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80';
-    document.getElementById('playlist-detail-type').textContent = type.toUpperCase();
+    document.getElementById('playlist-detail-type').textContent = type.toUpperCase().replace('_', ' ');
 
     this.dom.playlistTracksContainer.innerHTML = `<div class="loading-spinner"></div>`;
+
+    if (type === 'custom_playlist') {
+      const playlist = this.state.customPlaylists.find(p => p.id === id);
+      const tracks = playlist ? playlist.tracks : [];
+      this.state.tracksQueue = tracks;
+      this.renderPlaylistTracks(tracks, true, id);
+      return;
+    }
 
     try {
       const response = await fetch(`/api/spotify/tracks?id=${id}&type=${type}`);
@@ -473,14 +489,19 @@ class KasetApp {
 
       if (data.success) {
         this.state.tracksQueue = data.tracks;
-        this.renderPlaylistTracks(data.tracks);
+        this.renderPlaylistTracks(data.tracks, false);
       }
     } catch (error) {
       this.dom.playlistTracksContainer.innerHTML = `<div class="status-msg error">Failed to load playlist tracks.</div>`;
     }
   }
 
-  renderPlaylistTracks(tracks) {
+  renderPlaylistTracks(tracks, isCustom = false, playlistId = null) {
+    if (tracks.length === 0) {
+      this.dom.playlistTracksContainer.innerHTML = `<div class="status-msg" style="padding: 40px; text-align: center; color: var(--text-muted);">Playlist ini masih kosong. Silakan cari lagu dan tambahkan ke playlist Anda!</div>`;
+      return;
+    }
+
     this.dom.playlistTracksContainer.innerHTML = tracks.map((track, idx) => `
       <div class="track-row ${this.state.currentTrack && this.state.currentTrack.id === track.id ? 'active' : ''}" onclick="app.playTrackIndex(${idx})">
         <span class="track-number">${idx + 1}</span>
@@ -490,7 +511,18 @@ class KasetApp {
           <div class="track-artist">${track.artist}</div>
         </div>
         <div class="track-album">${track.album || ''}</div>
-        <div class="track-duration">${this.formatTime(track.duration || 210)}</div>
+        <div class="track-actions-container" style="display: flex; align-items: center; gap: 16px; margin-left: auto;">
+          <div class="track-duration" style="margin-right: 8px;">${this.formatTime(track.duration || 210)}</div>
+          ${isCustom ? `
+            <button class="remove-from-playlist-btn" onclick="event.stopPropagation(); app.removeTrackFromPlaylist('${playlistId}', '${track.id}')" title="Remove from Playlist" style="background: none; border: none; color: #ff5b5b; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: all 0.2s;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          ` : `
+            <button class="add-to-playlist-btn" onclick="event.stopPropagation(); app.openAddToPlaylistModal('${track.id}')" title="Add to Playlist" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: all 0.2s;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+          `}
+        </div>
       </div>
     `).join('');
   }
@@ -562,7 +594,12 @@ class KasetApp {
                 <div class="track-artist">${track.artist}</div>
               </div>
               <div class="track-album">${track.album || ''}</div>
-              <div class="track-duration">${this.formatTime(track.duration || 210)}</div>
+              <div class="track-actions-container" style="display: flex; align-items: center; gap: 16px; margin-left: auto;">
+                <div class="track-duration" style="margin-right: 8px;">${this.formatTime(track.duration || 210)}</div>
+                <button class="add-to-playlist-btn" onclick="event.stopPropagation(); app.openAddToPlaylistModal('${track.id}')" title="Add to Playlist" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: all 0.2s;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+              </div>
             </div>
           `).join('');
         }
@@ -593,6 +630,10 @@ class KasetApp {
     this.dom.playlistView.classList.add('hidden');
     this.dom.cassetteView.classList.remove('active');
     this.dom.cassetteView.classList.add('hidden');
+    if (this.dom.myPlaylistsView) {
+      this.dom.myPlaylistsView.classList.remove('active');
+      this.dom.myPlaylistsView.classList.add('hidden');
+    }
 
     // Show target view
     const target = document.getElementById(viewId);
@@ -605,13 +646,20 @@ class KasetApp {
     this.dom.navHome.classList.remove('active');
     this.dom.navExplore.classList.remove('active');
     this.dom.navCassette.classList.remove('active');
+    if (this.dom.navPlaylists) this.dom.navPlaylists.classList.remove('active');
 
     if (viewId === 'home-view') this.dom.navHome.classList.add('active');
     if (viewId === 'cassette-view') this.dom.navCassette.classList.add('active');
+    if (viewId === 'my-playlists-view' && this.dom.navPlaylists) this.dom.navPlaylists.classList.add('active');
   }
 
   showHomeView() {
     this.switchView('home-view');
+  }
+
+  showPlaylistsView() {
+    this.switchView('my-playlists-view');
+    this.renderCustomPlaylistsGrid();
   }
 
   showExploreView() {
@@ -818,6 +866,259 @@ class KasetApp {
 
   setVolume(value) {
     this.dom.audio.volume = value;
+  }
+
+  /**
+   * ==========================================================================
+   * DUAL-LAYER PERSISTENT PLAYLIST LOGIC
+   * ==========================================================================
+   */
+
+  async loadPlaylists() {
+    let localData = [];
+    try {
+      const saved = localStorage.getItem('kaset_playlists');
+      if (saved) localData = JSON.parse(saved);
+    } catch (e) {
+      console.error('Error reading localStorage playlists:', e);
+    }
+
+    try {
+      const response = await fetch('/api/playlists');
+      const data = await response.json();
+      if (data.success && data.playlists) {
+        // Merge or restore
+        if (data.playlists.length >= localData.length) {
+          this.state.customPlaylists = data.playlists;
+          localStorage.setItem('kaset_playlists', JSON.stringify(data.playlists));
+        } else {
+          // Client has more playlists (maybe created offline), sync with server
+          this.state.customPlaylists = localData;
+          await this.syncPlaylistsWithBackend(localData);
+        }
+      } else {
+        this.state.customPlaylists = localData;
+      }
+    } catch (error) {
+      console.warn('Backend sync unavailable, using local cache:', error);
+      this.state.customPlaylists = localData;
+    }
+  }
+
+  async syncPlaylistsWithBackend(playlists = this.state.customPlaylists) {
+    // 1. Save to Local Storage immediately
+    localStorage.setItem('kaset_playlists', JSON.stringify(playlists));
+
+    // 2. Sync to Backend in the background
+    try {
+      await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlists })
+      });
+    } catch (e) {
+      console.warn('Backend sync failed (network offline):', e);
+    }
+  }
+
+  createNewPlaylistModal() {
+    if (this.dom.createPlaylistModal) {
+      this.dom.createPlaylistModal.classList.remove('hidden');
+    }
+  }
+
+  closeCreatePlaylistModal() {
+    if (this.dom.createPlaylistModal) {
+      this.dom.createPlaylistModal.classList.add('hidden');
+      document.getElementById('playlist-name-input').value = '';
+      document.getElementById('playlist-desc-input').value = '';
+      document.getElementById('playlist-status-msg').classList.add('hidden');
+    }
+  }
+
+  async saveNewPlaylist() {
+    const nameInput = document.getElementById('playlist-name-input');
+    const descInput = document.getElementById('playlist-desc-input');
+    const statusMsg = document.getElementById('playlist-status-msg');
+
+    const name = nameInput.value.trim();
+    const desc = descInput.value.trim();
+
+    if (!name) {
+      statusMsg.textContent = 'Playlist name is required.';
+      statusMsg.className = 'status-msg error';
+      statusMsg.classList.remove('hidden');
+      return;
+    }
+
+    const newPlaylist = {
+      id: 'custom_' + Date.now(),
+      name: name,
+      description: desc || 'Custom user curated playlist.',
+      image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80',
+      tracks: []
+    };
+
+    this.state.customPlaylists.push(newPlaylist);
+    await this.syncPlaylistsWithBackend();
+    
+    this.closeCreatePlaylistModal();
+    this.renderCustomPlaylistsGrid();
+  }
+
+  async deletePlaylist(playlistId) {
+    if (confirm('Apakah Anda yakin ingin menghapus playlist ini? Tindakan ini tidak dapat dibatalkan.')) {
+      this.state.customPlaylists = this.state.customPlaylists.filter(p => p.id !== playlistId);
+      await this.syncPlaylistsWithBackend();
+      this.renderCustomPlaylistsGrid();
+      this.showPlaylistsView();
+    }
+  }
+
+  renderCustomPlaylistsGrid() {
+    const grid = this.dom.playlistsGrid;
+    if (!grid) return;
+
+    if (this.state.customPlaylists.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 48px; background: var(--bg-surface); border: 1px dashed var(--border-glass); border-radius: 16px;">
+          <p style="color: var(--text-muted); margin-bottom: 16px;">Anda belum memiliki playlist kustom.</p>
+          <button class="btn-accent" onclick="app.createNewPlaylistModal()" style="margin: 0 auto;">Buat Playlist Pertama</button>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = this.state.customPlaylists.map(pl => `
+      <div class="catalog-card" onclick="app.openPlaylist('${pl.id}', '${pl.name.replace(/'/g, "\\'")}', '${pl.description.replace(/'/g, "\\'")}', '${pl.image}', 'custom_playlist')">
+        <div class="card-img-container">
+          <img src="${pl.image}" alt="${pl.name}" class="card-img">
+          <button class="card-play-btn" onclick="event.stopPropagation(); app.playCustomPlaylistDirectly('${pl.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <h4 class="card-title" style="margin-bottom: 4px;">${pl.name}</h4>
+            <p class="card-subtitle">${pl.tracks.length} tracks</p>
+          </div>
+          <button onclick="event.stopPropagation(); app.deletePlaylist('${pl.id}')" style="background: none; border: none; color: #ff5b5b; cursor: pointer; padding: 4px; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Hapus Playlist">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  playCustomPlaylistDirectly(id) {
+    const playlist = this.state.customPlaylists.find(p => p.id === id);
+    if (playlist && playlist.tracks.length > 0) {
+      this.state.tracksQueue = playlist.tracks;
+      this.playTrackIndex(0);
+    } else {
+      alert('Playlist kustom ini masih kosong.');
+    }
+  }
+
+  findTrackInQueues(trackId) {
+    // 1. Search in current queue
+    let track = this.state.tracksQueue.find(t => t.id === trackId);
+    if (track) return track;
+
+    // 2. Search in current track
+    if (this.state.currentTrack && this.state.currentTrack.id === trackId) {
+      return this.state.currentTrack;
+    }
+
+    // 3. Search in all custom playlists
+    for (const pl of this.state.customPlaylists) {
+      track = pl.tracks.find(t => t.id === trackId);
+      if (track) return track;
+    }
+
+    // 4. Search in viral charts
+    if (this.state.viralTracks) {
+      track = this.state.viralTracks.find(t => t.id === trackId);
+      if (track) return track;
+    }
+
+    return null;
+  }
+
+  openAddToPlaylistModal(trackId) {
+    const track = this.findTrackInQueues(trackId);
+    if (!track) {
+      console.error('Track not found in any queues:', trackId);
+      alert('Gagal menemukan lagu untuk ditambahkan.');
+      return;
+    }
+
+    this.state.trackAddingToPlaylist = track;
+    
+    const listContainer = document.getElementById('add-to-playlists-list');
+    if (!listContainer) return;
+
+    if (this.state.customPlaylists.length === 0) {
+      listContainer.innerHTML = `
+        <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+          Kamu belum memiliki playlist kustom.
+        </div>
+      `;
+    } else {
+      listContainer.innerHTML = this.state.customPlaylists.map(pl => `
+        <div class="track-row" onclick="app.addTrackToPlaylist('${pl.id}')" style="padding: 12px 16px; justify-content: space-between; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+            <img src="${pl.image}" style="width: 36px; height: 36px; border-radius: 6px; object-fit: cover;">
+            <div style="min-width: 0;">
+              <div style="font-weight: 600; color: var(--text-main); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pl.name}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">${pl.tracks.length} tracks</div>
+            </div>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+      `).join('');
+    }
+
+    if (this.dom.addToPlaylistModal) {
+      this.dom.addToPlaylistModal.classList.remove('hidden');
+    }
+  }
+
+  closeAddToPlaylistModal() {
+    if (this.dom.addToPlaylistModal) {
+      this.dom.addToPlaylistModal.classList.add('hidden');
+      this.state.trackAddingToPlaylist = null;
+    }
+  }
+
+  async addTrackToPlaylist(playlistId) {
+    const track = this.state.trackAddingToPlaylist;
+    if (!track) return;
+
+    const playlist = this.state.customPlaylists.find(p => p.id === playlistId);
+    if (playlist) {
+      // Check if already in playlist
+      if (playlist.tracks.some(t => t.id === track.id)) {
+        alert('Lagu ini sudah ada di playlist.');
+        this.closeAddToPlaylistModal();
+        return;
+      }
+      
+      playlist.tracks.push(track);
+      await this.syncPlaylistsWithBackend();
+      this.closeAddToPlaylistModal();
+    }
+  }
+
+  async removeTrackFromPlaylist(playlistId, trackId) {
+    const playlist = this.state.customPlaylists.find(p => p.id === playlistId);
+    if (playlist) {
+      playlist.tracks = playlist.tracks.filter(t => t.id !== trackId);
+      await this.syncPlaylistsWithBackend();
+      // Re-render current tracks in this playlist
+      this.state.tracksQueue = playlist.tracks;
+      this.renderPlaylistTracks(playlist.tracks, true, playlistId);
+    }
   }
 
   formatTime(seconds) {
