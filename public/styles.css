@@ -99,6 +99,7 @@ body {
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: 1fr var(--player-bar-height);
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   max-width: 100vw;
   background-color: var(--bg-base);
@@ -1937,6 +1938,8 @@ body:not(.dark-theme) .cassette-bottom-head {
   .app-container {
     grid-template-columns: 60px minmax(0, 1fr);
     grid-template-rows: 1fr 80px;
+    height: 100vh;
+    height: 100dvh;
   }
   .sidebar {
     padding: 16px 8px;
