@@ -91,13 +91,7 @@ class KasetApp {
       popupArtist: document.getElementById('popup-artist'),
       popupSourceBadge: document.getElementById('popup-source-badge'),
       popupIconPlay: document.getElementById('popup-icon-play'),
-      popupIconPause: document.getElementById('popup-icon-pause'),
-
-      // In-App Toast Elements
-      toastNotification: document.getElementById('toast-notification'),
-      toastCover: document.getElementById('toast-cover'),
-      toastTitle: document.getElementById('toast-title'),
-      toastArtist: document.getElementById('toast-artist')
+      popupIconPause: document.getElementById('popup-icon-pause')
     };
 
     this.init();
@@ -140,11 +134,14 @@ class KasetApp {
             if (led) led.classList.add('active'); // Turn vintage TV light green
           },
           'onStateChange': (event) => {
-            // Only handle ENDED state as a backup fail-safe
             if (event.data === YT.PlayerState.ENDED) {
-              if (this.dom.audio && !this.dom.audio.paused) {
-                this.handleTrackEnded();
-              }
+              this.handleTrackEnded();
+            }
+            if (event.data === YT.PlayerState.PLAYING) {
+              this.onPlayStateChange(true);
+            }
+            if (event.data === YT.PlayerState.PAUSED) {
+              this.onPlayStateChange(false);
             }
           }
         }
@@ -169,32 +166,6 @@ class KasetApp {
     this.dom.audio.addEventListener('pause', () => this.onPlayStateChange(false));
     this.dom.audio.addEventListener('waiting', () => this.updateAudioSourceBadge('Buffering stream...'));
     this.dom.audio.addEventListener('playing', () => this.updateAudioSourceBadge(`Playing full duration (${this.state.currentTrack ? this.state.currentTrack.audioSource : 'Stream'})`));
-
-    // Seamless Background Playback Handover Transition Engine
-    document.addEventListener('visibilitychange', () => {
-      if (!this.state.currentTrack || !this.state.isPlaying) return;
-
-      if (document.hidden) {
-        // App minimized / screen locked! Just pause the YouTube video to save resources
-        if (window.ytPlayer && typeof window.ytPlayer.pauseVideo === 'function') {
-          try {
-            window.ytPlayer.pauseVideo();
-          } catch(e) {
-            console.error('Failed to pause video in background:', e.message);
-          }
-        }
-      } else {
-        // App returned to foreground! Resume YouTube video and sync it to native audio time
-        if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
-          try {
-            window.ytPlayer.seekTo(this.dom.audio.currentTime, true);
-            window.ytPlayer.playVideo();
-          } catch(e) {
-            console.error('Failed to resume video in foreground:', e.message);
-          }
-        }
-      }
-    });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -898,41 +869,31 @@ class KasetApp {
         // Only load if the user hasn't switched tracks while loading
         if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success) {
           if (data.videoId) {
-            track.videoId = data.videoId;
-            if (this.state.currentTrack) {
-              this.state.currentTrack.videoId = data.videoId;
-            }
-            // Natively stream the premium audio track directly (keeps process active in background)
+            // PLAY VIA THE VISIBLE RETRO TV MONITOR IFRAME PLAYER (100% stable, bypassed CORS & Vercel streaming limitations)
             this.state.isYoutubeActive = true;
             track.audioSource = data.source || 'Premium Engine';
-            
-            this.dom.audio.src = data.audio_url || `/api/audio/stream?videoId=${data.videoId}`;
-            this.dom.audio.muted = false;
-            this.dom.audio.loop = false;
-            this.dom.audio.play().catch(e => console.error('Primary audio stream play failed:', e));
-            
+
             if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
-              try {
-                window.ytPlayer.mute(); // Mute YouTube video because audio comes from native player
-                window.ytPlayer.loadVideoById(data.videoId, 0);
-                window.ytPlayer.playVideo();
-              } catch(e) {
-                console.error('YouTube video sync load failed:', e);
+              window.ytPlayer.unMute();
+              window.ytPlayer.setVolume(this.dom.volumeSlider.value * 100);
+              window.ytPlayer.loadVideoById(data.videoId, 0);
+              window.ytPlayer.playVideo();
+              this.onPlayStateChange(true);
+              this.startYtProgressLoop();
+              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+
+              // Turn TV LED Green
+              if (led) {
+                led.classList.add('active');
+                led.style.backgroundColor = '#1db954';
+                led.style.boxShadow = '0 0 10px #1db954';
               }
-            }
-
-            this.onPlayStateChange(true);
-            this.startYtProgressLoop();
-            this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
-            
-            this.showToast(track);
-            this.setupMediaSession(track);
-
-            // Turn TV LED Green
-            if (led) {
-              led.classList.add('active');
-              led.style.backgroundColor = '#1db954';
-              led.style.boxShadow = '0 0 10px #1db954';
+            } else {
+              // Fail-safe if iframe API hasn't loaded, stream natively
+              this.state.isYoutubeActive = false;
+              this.dom.audio.src = `/api/audio/stream?videoId=${data.videoId}`;
+              this.dom.audio.play().catch(e => console.error('Emergency direct play failed:', e));
+              this.updateAudioSourceBadge(`Playing full duration (Emergency Fallback)`);
             }
           } else if (data.audio_url) {
             // Emergency fallback for other audio files
@@ -962,34 +923,15 @@ class KasetApp {
       clearInterval(this.state.ytProgressInterval);
     }
     this.state.ytProgressInterval = setInterval(() => {
-      // Sync progress bar from the native audio element
-      const currentTime = this.dom.audio.currentTime;
-      const duration = this.dom.audio.duration || (this.state.currentTrack ? this.state.currentTrack.duration : 240);
-      
-      if (duration > 0) {
-        const progressPercent = (currentTime / duration) * 100;
-        this.dom.progressFilled.style.width = `${progressPercent}%`;
-        this.dom.timeCurrent.textContent = this.formatTime(currentTime);
-        this.dom.timeTotal.textContent = this.formatTime(duration);
-      }
-
-      // Sync YouTube video time to native audio time (if visible and playing)
-      if (!document.hidden && window.ytPlayer && typeof window.ytPlayer.getCurrentTime === 'function') {
-        try {
-          const ytTime = window.ytPlayer.getCurrentTime();
-          const diff = Math.abs(ytTime - currentTime);
-          if (diff > 1.5) { // sync if drifted by more than 1.5 seconds
-            window.ytPlayer.seekTo(currentTime, true);
-          }
-          // Ensure YouTube video is playing if audio is playing
-          if (this.state.isPlaying && typeof window.ytPlayer.getPlayerState === 'function') {
-            const ytState = window.ytPlayer.getPlayerState();
-            if (ytState !== YT.PlayerState.PLAYING && ytState !== YT.PlayerState.BUFFERING) {
-              window.ytPlayer.playVideo();
-            }
-          }
-        } catch(e) {
-          console.log('YouTube sync warning:', e.message);
+      if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getCurrentTime === 'function') {
+        const currentTime = window.ytPlayer.getCurrentTime();
+        const duration = window.ytPlayer.getDuration() || this.state.currentTrack.duration || 240;
+        
+        if (duration > 0) {
+          const progressPercent = (currentTime / duration) * 100;
+          this.dom.progressFilled.style.width = `${progressPercent}%`;
+          this.dom.timeCurrent.textContent = this.formatTime(currentTime);
+          this.dom.timeTotal.textContent = this.formatTime(duration);
         }
       }
     }, 500);
@@ -998,43 +940,6 @@ class KasetApp {
   updateAudioSourceBadge(text) {
     this.dom.audioSourceBadge.textContent = text;
     if (this.dom.popupSourceBadge) this.dom.popupSourceBadge.textContent = text;
-  }
-
-  showToast(track) {
-    if (!this.dom.toastNotification) return;
-
-    this.dom.toastTitle.textContent = track.title;
-    this.dom.toastArtist.textContent = track.artist;
-    this.dom.toastCover.src = track.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80';
-
-    this.dom.toastNotification.classList.remove('hidden');
-
-    if (this.state.toastTimeout) {
-      clearTimeout(this.state.toastTimeout);
-    }
-
-    this.state.toastTimeout = setTimeout(() => {
-      this.dom.toastNotification.classList.add('hidden');
-    }, 4000);
-  }
-
-  setupMediaSession(track) {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.title,
-        artist: track.artist,
-        album: track.album || 'Kaset Premium',
-        artwork: [
-          { src: track.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80', sizes: '300x300', type: 'image/jpeg' }
-        ]
-      });
-
-      // Synchronize Lock Screen click controls with active app playback engine
-      navigator.mediaSession.setActionHandler('play', () => this.togglePlayPause());
-      navigator.mediaSession.setActionHandler('pause', () => this.togglePlayPause());
-      navigator.mediaSession.setActionHandler('previoustrack', () => this.prevTrack());
-      navigator.mediaSession.setActionHandler('nexttrack', () => this.nextTrack());
-    }
   }
 
   togglePlayPause() {
@@ -1047,8 +952,20 @@ class KasetApp {
       return;
     }
 
+    if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getPlayerState === 'function') {
+      const state = window.ytPlayer.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) {
+        window.ytPlayer.pauseVideo();
+        this.onPlayStateChange(false);
+      } else {
+        window.ytPlayer.playVideo();
+        this.onPlayStateChange(true);
+      }
+      return;
+    }
+
     if (this.dom.audio.paused) {
-      this.dom.audio.play().catch(e => console.error('Audio play failed:', e));
+      this.dom.audio.play();
     } else {
       this.dom.audio.pause();
     }
@@ -1056,11 +973,6 @@ class KasetApp {
 
   onPlayStateChange(isPlaying) {
     this.state.isPlaying = isPlaying;
-    
-    // Sync System Notification Lock Screen playback state
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }
     
     const vinyl = document.getElementById('playlist-vinyl-record');
     
@@ -1071,15 +983,6 @@ class KasetApp {
       if (this.dom.popupIconPause) this.dom.popupIconPause.classList.remove('hidden');
       this.dom.spinningCassette.classList.add('playing');
       if (vinyl) vinyl.classList.add('spinning');
-
-      // Sync YouTube video
-      if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
-        try {
-          window.ytPlayer.playVideo();
-        } catch(e) {
-          console.error('Failed to sync play to YouTube:', e);
-        }
-      }
     } else {
       this.dom.iconPlay.classList.remove('hidden');
       this.dom.iconPause.classList.add('hidden');
@@ -1087,15 +990,6 @@ class KasetApp {
       if (this.dom.popupIconPause) this.dom.popupIconPause.classList.add('hidden');
       this.dom.spinningCassette.classList.remove('playing');
       if (vinyl) vinyl.classList.remove('spinning');
-
-      // Sync YouTube video
-      if (window.ytPlayer && typeof window.ytPlayer.pauseVideo === 'function') {
-        try {
-          window.ytPlayer.pauseVideo();
-        } catch(e) {
-          console.error('Failed to sync pause to YouTube:', e);
-        }
-      }
     }
   }
 
@@ -1148,15 +1042,12 @@ class KasetApp {
 
   handleTrackEnded() {
     if (this.state.isRepeat && !this.state.isShuffle) {
-      this.dom.audio.currentTime = 0;
-      this.dom.audio.play().catch(e => console.error('Audio repeat failed:', e));
-      if (window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
-        try {
-          window.ytPlayer.seekTo(0, true);
-          window.ytPlayer.playVideo();
-        } catch(e) {
-          console.error('YouTube repeat sync failed:', e.message);
-        }
+      if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+        window.ytPlayer.seekTo(0, true);
+        window.ytPlayer.playVideo();
+      } else {
+        this.dom.audio.currentTime = 0;
+        this.dom.audio.play();
       }
     } else {
       this.nextTrack();
@@ -1174,8 +1065,9 @@ class KasetApp {
   }
 
   updateProgress() {
+    if (this.state.isYoutubeActive) return;
     const { currentTime, duration } = this.dom.audio;
-    if (isNaN(duration) || duration <= 0) return;
+    if (isNaN(duration)) return;
 
     const progressPercent = (currentTime / duration) * 100;
     this.dom.progressFilled.style.width = `${progressPercent}%`;
@@ -1184,7 +1076,10 @@ class KasetApp {
   }
 
   seekAudio(event) {
-    const duration = this.dom.audio.duration || (this.state.currentTrack ? this.state.currentTrack.duration : 0);
+    const { duration } = this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getDuration === 'function'
+      ? { duration: window.ytPlayer.getDuration() }
+      : this.dom.audio;
+
     if (isNaN(duration) || duration <= 0) return;
 
     const rect = this.dom.progressBar.getBoundingClientRect();
@@ -1192,16 +1087,10 @@ class KasetApp {
     const width = rect.width;
     const seekTime = (clickX / width) * duration;
     
-    // Master seek the native audio
-    this.dom.audio.currentTime = seekTime;
-
-    // Sync seek to YouTube video
-    if (window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
-      try {
-        window.ytPlayer.seekTo(seekTime, true);
-      } catch(e) {
-        console.error('Failed to sync seek to YouTube:', e.message);
-      }
+    if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+      window.ytPlayer.seekTo(seekTime, true);
+    } else {
+      this.dom.audio.currentTime = seekTime;
     }
   }
 
