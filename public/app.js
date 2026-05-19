@@ -91,7 +91,13 @@ class KasetApp {
       popupArtist: document.getElementById('popup-artist'),
       popupSourceBadge: document.getElementById('popup-source-badge'),
       popupIconPlay: document.getElementById('popup-icon-play'),
-      popupIconPause: document.getElementById('popup-icon-pause')
+      popupIconPause: document.getElementById('popup-icon-pause'),
+
+      // In-App Toast Elements
+      toastNotification: document.getElementById('toast-notification'),
+      toastCover: document.getElementById('toast-cover'),
+      toastTitle: document.getElementById('toast-title'),
+      toastArtist: document.getElementById('toast-artist')
     };
 
     this.init();
@@ -1021,6 +1027,43 @@ class KasetApp {
     if (this.dom.popupSourceBadge) this.dom.popupSourceBadge.textContent = text;
   }
 
+  showToast(track) {
+    if (!this.dom.toastNotification) return;
+
+    this.dom.toastTitle.textContent = track.title;
+    this.dom.toastArtist.textContent = track.artist;
+    this.dom.toastCover.src = track.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80';
+
+    this.dom.toastNotification.classList.remove('hidden');
+
+    if (this.state.toastTimeout) {
+      clearTimeout(this.state.toastTimeout);
+    }
+
+    this.state.toastTimeout = setTimeout(() => {
+      this.dom.toastNotification.classList.add('hidden');
+    }, 4000);
+  }
+
+  setupMediaSession(track) {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: track.album || 'Kaset Premium',
+        artwork: [
+          { src: track.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80', sizes: '300x300', type: 'image/jpeg' }
+        ]
+      });
+
+      // Synchronize Lock Screen click controls with active app playback engine
+      navigator.mediaSession.setActionHandler('play', () => this.togglePlayPause());
+      navigator.mediaSession.setActionHandler('pause', () => this.togglePlayPause());
+      navigator.mediaSession.setActionHandler('previoustrack', () => this.prevTrack());
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.nextTrack());
+    }
+  }
+
   togglePlayPause() {
     if (!this.state.currentTrack) {
       if (this.state.tracksQueue.length > 0) {
@@ -1052,6 +1095,11 @@ class KasetApp {
 
   onPlayStateChange(isPlaying) {
     this.state.isPlaying = isPlaying;
+    
+    // Sync System Notification Lock Screen playback state
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
     
     const vinyl = document.getElementById('playlist-vinyl-record');
     

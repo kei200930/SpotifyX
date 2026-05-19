@@ -588,6 +588,24 @@
   <!-- Audio Element -->
   <audio id="main-audio-player"></audio>
 
+  <!-- CUSTOM GLASSMORPHIC IN-APP TOAST NOTIFICATION -->
+  <div id="toast-notification" class="toast-notification hidden" onclick="app.openSongPopup()">
+    <div class="toast-body">
+      <div class="toast-cover-wrapper">
+        <img id="toast-cover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=80" alt="Cover" class="toast-cover">
+        <div class="toast-vinyl-overlay"></div>
+      </div>
+      <div class="toast-info">
+        <div class="toast-badge">
+          <span class="pulse-dot"></span>
+          <span class="badge-text">NOW PLAYING</span>
+        </div>
+        <div id="toast-title" class="toast-title">Song Title</div>
+        <div id="toast-artist" class="toast-artist">Artist Name</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Vanilla JS Application Logic -->
   <script src="app.js?v=2.0.1"></script>
 </body>
