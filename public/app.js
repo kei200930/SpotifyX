@@ -167,6 +167,53 @@ class KasetApp {
     this.dom.audio.addEventListener('waiting', () => this.updateAudioSourceBadge('Buffering stream...'));
     this.dom.audio.addEventListener('playing', () => this.updateAudioSourceBadge(`Playing full duration (${this.state.currentTrack ? this.state.currentTrack.audioSource : 'Stream'})`));
 
+    // Seamless Background Playback Handover Transition Engine
+    document.addEventListener('visibilitychange', () => {
+      if (!this.state.currentTrack || !this.state.isPlaying) return;
+
+      if (document.hidden) {
+        // App minimized / screen locked! Handover playing state to native <audio>
+        if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getCurrentTime === 'function') {
+          try {
+            const currentTime = window.ytPlayer.getCurrentTime();
+            window.ytPlayer.pauseVideo();
+            
+            this.state.isTransitioningToBackground = true;
+            this.state.isYoutubeActive = false; // Playing natively in background
+            this.dom.audio.src = `/api/audio/stream?videoId=${this.state.currentTrack.videoId}`;
+            this.dom.audio.currentTime = currentTime;
+            this.dom.audio.muted = false;
+            this.dom.audio.loop = false;
+            this.dom.audio.play().catch(e => console.log('Seamless background playing active:', e.message));
+          } catch(e) {
+            console.error('Background handover failed:', e.message);
+          }
+        }
+      } else {
+        // App returned to foreground! Handover playing state back to Retro TV YouTube iframe monitor
+        if (this.state.isTransitioningToBackground) {
+          try {
+            this.state.isTransitioningToBackground = false;
+            const currentTime = this.dom.audio.currentTime;
+            this.dom.audio.pause();
+            
+            // Re-bless with silent looping context
+            this.dom.audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+            this.dom.audio.loop = true;
+            this.dom.audio.play().catch(e => console.log('Foreground silent context active.'));
+
+            this.state.isYoutubeActive = true;
+            if (window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+              window.ytPlayer.seekTo(currentTime, true);
+              window.ytPlayer.playVideo();
+            }
+          } catch(e) {
+            console.error('Foreground restoration failed:', e.message);
+          }
+        }
+      }
+    });
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Spacebar to play/pause if not in input
@@ -869,31 +916,63 @@ class KasetApp {
         // Only load if the user hasn't switched tracks while loading
         if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success) {
           if (data.videoId) {
-            // PLAY VIA THE VISIBLE RETRO TV MONITOR IFRAME PLAYER (100% stable, bypassed CORS & Vercel streaming limitations)
-            this.state.isYoutubeActive = true;
-            track.audioSource = data.source || 'Premium Engine';
-
-            if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
-              window.ytPlayer.unMute();
-              window.ytPlayer.setVolume(this.dom.volumeSlider.value * 100);
-              window.ytPlayer.loadVideoById(data.videoId, 0);
-              window.ytPlayer.playVideo();
-              this.onPlayStateChange(true);
-              this.startYtProgressLoop();
-              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
-
-              // Turn TV LED Green
-              if (led) {
-                led.classList.add('active');
-                led.style.backgroundColor = '#1db954';
-                led.style.boxShadow = '0 0 10px #1db954';
-              }
-            } else {
-              // Fail-safe if iframe API hasn't loaded, stream natively
+            if (document.hidden) {
+              // Playing natively while screen is off / browser minimized to retain audio stream prioritize
               this.state.isYoutubeActive = false;
+              this.state.isTransitioningToBackground = true;
+              track.audioSource = data.source || 'Premium Stream (Background)';
+              
               this.dom.audio.src = `/api/audio/stream?videoId=${data.videoId}`;
-              this.dom.audio.play().catch(e => console.error('Emergency direct play failed:', e));
-              this.updateAudioSourceBadge(`Playing full duration (Emergency Fallback)`);
+              this.dom.audio.muted = false;
+              this.dom.audio.loop = false;
+              this.dom.audio.play().catch(e => console.error('Background play failed:', e));
+              
+              this.onPlayStateChange(true);
+              this.updateAudioSourceBadge(`Playing background (${track.audioSource})`);
+              this.showToast(track);
+              this.setupMediaSession(track);
+            } else {
+              // PLAY VIA THE VISIBLE RETRO TV MONITOR IFRAME PLAYER (100% stable, bypassed CORS & Vercel streaming limitations)
+              this.state.isYoutubeActive = true;
+              track.audioSource = data.source || 'Premium Engine';
+
+              if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
+                window.ytPlayer.unMute();
+                window.ytPlayer.setVolume(this.dom.volumeSlider.value * 100);
+                window.ytPlayer.loadVideoById(data.videoId, 0);
+                window.ytPlayer.playVideo();
+                
+                this.onPlayStateChange(true);
+                this.startYtProgressLoop();
+                this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+                
+                // Trigger premium UI Toast & System Lock Screen Notifications
+                this.showToast(track);
+                this.setupMediaSession(track);
+
+                // Play silent background looping track to keep mobile OS process alive
+                try {
+                  this.dom.audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+                  this.dom.audio.muted = false;
+                  this.dom.audio.loop = true;
+                  this.dom.audio.play().catch(e => console.log('Silent audio context initialized.'));
+                } catch(e) {
+                  console.log('Background silent audio blessing failed:', e.message);
+                }
+
+                // Turn TV LED Green
+                if (led) {
+                  led.classList.add('active');
+                  led.style.backgroundColor = '#1db954';
+                  led.style.boxShadow = '0 0 10px #1db954';
+                }
+              } else {
+                // Fail-safe if iframe API hasn't loaded, stream natively
+                this.state.isYoutubeActive = false;
+                this.dom.audio.src = `/api/audio/stream?videoId=${data.videoId}`;
+                this.dom.audio.play().catch(e => console.error('Emergency direct play failed:', e));
+                this.updateAudioSourceBadge(`Playing full duration (Emergency Fallback)`);
+              }
             }
           } else if (data.audio_url) {
             // Emergency fallback for other audio files
