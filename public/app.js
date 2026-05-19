@@ -801,11 +801,16 @@ class KasetApp {
     this.onPlayStateChange(false);
     this.updateAudioSourceBadge(`Loading full duration stream...`);
 
-    // CRITICAL MOBILE AUTOPLAY BYPASS:
-    // Synchronously bless the HTML5 audio element with a silent WAV source during the user click event call-stack.
-    // This allows programmatic playback inside the async fetch callback on iOS Safari & Android Chrome!
-    this.dom.audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA';
-    this.dom.audio.play().catch(e => console.log('Silent bless play caught:', e.message));
+    // CRITICAL MOBILE AUTOPLAY BYPASS (Muted User Gesture Blessing):
+    // Synchronously play a real, valid MP3 source (Spotify preview or Jamendo) but MUTED.
+    // This successfully registers user gesture blessing on iOS Safari & Android Chrome
+    // while keeping the loading phase completely silent as requested!
+    const instantAudio = track.preview_url || 'https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95';
+    this.dom.audio.muted = true; // Silences the preview during loading
+    this.dom.audio.src = instantAudio;
+    
+    // Trigger play synchronously to bless the media element
+    this.dom.audio.play().catch(e => console.log('Instant mobile play permission acquired:', e.message));
 
     // Fetch full-duration audio stream directly via Python Engine / YouTube Fallback
     fetch(`/api/audio/search?track=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`)
@@ -813,14 +818,15 @@ class KasetApp {
       .then(data => {
         // Only load if the user hasn't switched tracks while loading
         if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success) {
-          // Force native HTML5 playback via our secure server stream proxy (bypasses all CORS/IP blocks on mobile & web)
+          // Use our secure same-origin server streaming proxy to bypass CORS/IP blocks
           const audioUrl = data.videoId ? `/api/audio/stream?videoId=${data.videoId}` : data.audio_url;
           track.audioSource = data.source || 'Premium Stream';
           
+          // Smoothly transition source without calling .load() to retain iOS touch permission
           this.dom.audio.src = audioUrl;
-          this.dom.audio.load();
 
           const onCanPlay = () => {
+            this.dom.audio.muted = false; // Unmute now that full duration stream is playing!
             this.dom.audio.play().catch(e => console.error('Direct audio stream play failed:', e));
             this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
             this.onPlayStateChange(true);
