@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Vanilla CSS -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2.0.1">
 </head>
 <body>
   <div id="app-container" class="app-container dark-theme">
@@ -345,10 +345,18 @@
             <div class="tv-frame">
               <div id="yt-player"></div>
               <div class="tv-glare"></div>
+              <div class="tv-scanlines"></div>
             </div>
             <div class="tv-controls">
-              <span id="tv-led-indicator" class="tv-led"></span>
-              <span class="tv-text">VINTAGE MONITOR</span>
+              <div class="tv-led-group">
+                <span id="tv-led-indicator" class="tv-led"></span>
+                <span class="tv-text">VINTAGE MONITOR</span>
+                <button class="tv-power-btn" onclick="app.togglePlay()" title="Power Switch"></button>
+              </div>
+              <div class="tv-knobs">
+                <div class="tv-knob" title="Tuning Dial"></div>
+                <div class="tv-knob" title="Volume Knob"></div>
+              </div>
             </div>
           </div>
         </div>

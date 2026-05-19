@@ -3002,38 +3002,50 @@ body:not(.dark-theme) .cassette-bottom-head {
 }
 
 /* ==========================================================================
-   RETRO TV MONITOR SYSTEM
+   RETRO TV MONITOR SYSTEM (ULTRA-PREMIUM SKEUOMORPHIC DESIGN)
+   ========================================================================== */
+/* ==========================================================================
+   RETRO TV MONITOR SYSTEM (ULTRA-PREMIUM SKEUOMORPHIC DESIGN)
    ========================================================================== */
 .retro-tv-screen {
   width: 100%;
   max-width: 320px;
-  background: #141419;
-  border: 6px solid #282830;
-  border-radius: 16px;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.5);
-  padding: 12px;
-  margin: 16px auto 0 auto;
+  background: linear-gradient(135deg, #2b2b36 0%, #1c1c24 100%);
+  border: 10px solid #3c3c4a;
+  border-bottom: 16px solid #30303b; /* Realistic vintage bottom bezel */
+  border-radius: 24px;
+  box-shadow: inset 0 4px 6px rgba(255, 255, 255, 0.15),
+              inset 0 -4px 6px rgba(0, 0, 0, 0.6),
+              0 12px 28px rgba(0, 0, 0, 0.6),
+              0 0 0 2px rgba(255, 255, 255, 0.05);
+  padding: 14px;
+  margin: 24px auto 12px auto; /* Increased margin to prevent overlapping */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border-bottom-width: 10px; /* Thicker bottom for authentic retro feel */
+  gap: 10px;
+  position: relative;
 }
 
 .tv-frame {
   width: 100%;
-  aspect-ratio: 16/9;
+  aspect-ratio: 4/3; /* Vintage 4:3 CRT aspect ratio */
   background: #000;
-  border-radius: 8px;
+  border-radius: 16px;
   overflow: hidden;
   position: relative;
-  border: 3px solid #1a1a20;
+  border: 5px solid #121217;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 1),
+              0 2px 4px rgba(255, 255, 255, 0.05);
 }
 
+/* Zoom YouTube video to fill 4:3 screen (hides black letterboxes) */
 .tv-frame iframe {
   width: 100%;
   height: 100%;
   border: none;
+  transform: scale(1.35);
+  transform-origin: center;
 }
 
 .tv-glare {
@@ -3042,38 +3054,148 @@ body:not(.dark-theme) .cassette-bottom-head {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 100%);
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(0, 0, 0, 0.5) 100%);
   pointer-events: none;
-  z-index: 2;
+  z-index: 4;
+}
+
+/* Authentic CRT scanlines & phosphor mask shader */
+.tv-scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    rgba(18, 16, 16, 0) 0px,
+    rgba(18, 16, 16, 0) 1px,
+    rgba(0, 0, 0, 0.3) 2px,
+    rgba(0, 0, 0, 0.3) 3px
+  ), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.9;
 }
 
 .tv-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px;
+  padding: 6px 4px 0 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  margin-top: 2px;
+}
+
+.tv-led-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tv-led {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   background-color: #ff3b30;
   border-radius: 50%;
-  box-shadow: 0 0 8px #ff3b30;
-  transition: all 0.3s;
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.7);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes tv-led-active-pulse {
+  0% { box-shadow: 0 0 6px rgba(29, 185, 84, 0.6); opacity: 0.8; }
+  100% { box-shadow: 0 0 14px rgba(29, 185, 84, 1); opacity: 1; }
 }
 
 .tv-led.active {
   background-color: #1db954;
-  box-shadow: 0 0 10px #1db954;
+  animation: tv-led-active-pulse 1s infinite alternate;
 }
 
 .tv-text {
   font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
   color: var(--text-muted);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* Premium physical Red Power toggle switch */
+.tv-power-btn {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #ff4d4d 0%, #cc1111 100%);
+  border: 1px solid #770000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6), 
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  margin-left: 2px;
+  position: relative;
+  transition: all 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-power-btn:hover {
+  filter: brightness(1.1);
+}
+
+.tv-power-btn:active {
+  transform: scale(0.9);
+  background: linear-gradient(180deg, #cc1111 0%, #aa0000 100%);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.tv-knobs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tv-knob {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #5a5a6a 0%, #202028 85%, #101015 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7),
+              inset 0 1px 1px rgba(255, 255, 255, 0.15),
+              inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.tv-knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 2px;
+  height: 5px;
+  background-color: #ff3b30;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.tv-knob:hover {
+  transform: rotate(75deg);
+}
+
+.tv-knob:last-child {
+  width: 13px;
+  height: 13px;
+}
+
+.tv-knob:last-child::after {
+  height: 4px;
+  background-color: #ffffff;
+}
+
+.tv-knob:last-child:hover {
+  transform: rotate(-60deg);
 }
 
 /* ==========================================================================
