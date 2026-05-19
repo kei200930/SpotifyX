@@ -919,6 +919,11 @@ class KasetApp {
   }
 
   handleTrackEnded() {
+    // Ignore ended events triggered by the temporary silent blessing source
+    if (this.dom.audio.src && this.dom.audio.src.startsWith('data:audio')) {
+      console.log('Ignore ended event for silent blessing');
+      return;
+    }
     if (this.state.isRepeat && !this.state.isShuffle) {
       this.dom.audio.currentTime = 0;
       this.dom.audio.play();
@@ -938,6 +943,10 @@ class KasetApp {
   }
 
   updateProgress() {
+    // Ignore progress updates for the temporary silent blessing source
+    if (this.dom.audio.src && this.dom.audio.src.startsWith('data:audio')) {
+      return;
+    }
     const { currentTime, duration } = this.dom.audio;
     if (isNaN(duration)) return;
 
