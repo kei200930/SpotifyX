@@ -881,15 +881,7 @@ class KasetApp {
     }
 
     // CRITICAL MOBILE AUTOPLAY BYPASS:
-    // Synchronously activate/bless both native audio and YouTube player under the user's touch event boundary!
-    try {
-      this.dom.audio.play()
-        .then(() => this.dom.audio.pause())
-        .catch(e => console.log('Audio touch blessing:', e.message));
-    } catch (err) {
-      console.log('Audio touch blessing error:', err.message);
-    }
-
+    // Synchronously play/activate the official YouTube player if initialized to capture the user touch event!
     if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
       try {
         window.ytPlayer.mute();
@@ -914,63 +906,10 @@ class KasetApp {
             this.state.isYoutubeActive = true;
             track.audioSource = data.source || 'Premium Engine';
             
-            const pipedInstances = [
-              'https://pipedapi.kavin.rocks',
-              'https://pipedapi.leptons.xyz',
-              'https://pipedapi.nosebs.ru',
-              'https://pipedapi-libre.kavin.rocks',
-              'https://piped-api.privacy.com.de',
-              'https://pipedapi.adminforge.de',
-              'https://api.piped.yt',
-              'https://pipedapi.drgns.space',
-              'https://pipedapi.owo.si',
-              'https://pipedapi.ducks.party',
-              'https://piped-api.codespace.cz',
-              'https://pipedapi.reallyaweso.me',
-              'https://api.piped.private.coffee',
-              'https://pipedapi.darkness.services',
-              'https://pipedapi.orangenet.cc'
-            ];
-
-            const loadAudioSource = async () => {
-              try {
-                console.log('Fetching client-signed direct stream URL...');
-                const directUrl = await Promise.any(pipedInstances.map(async (apiBase) => {
-                  const res = await fetch(`${apiBase}/streams/${data.videoId}`);
-                  if (!res.ok) throw new Error('Mirror fail');
-                  const json = await res.json();
-                  if (json && json.audioStreams && json.audioStreams.length > 0) {
-                    const best = json.audioStreams.find(s => s.format === 'M4A' || s.mimeType.includes('mp4')) || json.audioStreams[0];
-                    if (best && best.url) return best.url;
-                  }
-                  throw new Error('No stream');
-                }));
-                console.log('Successfully obtained client-signed stream URL:', directUrl);
-                this.dom.audio.src = directUrl;
-                track.audioSource = 'Client-Signed High-Speed CDN';
-              } catch (err) {
-                console.warn('Direct client-signed stream fetch failed, falling back to server stream...', err);
-                this.dom.audio.src = data.audio_url || `/api/audio/stream?videoId=${data.videoId}`;
-              }
-              
-              this.dom.audio.muted = false;
-              this.dom.audio.loop = false;
-              this.dom.audio.play()
-                .then(() => {
-                  this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
-                })
-                .catch(e => {
-                  console.error('Audio stream play failed:', e);
-                  // Double fallback: if it fails, try the alternative
-                  if (!this.dom.audio.src.includes('/api/audio/stream')) {
-                    console.log('Attempting double fallback to server stream...');
-                    this.dom.audio.src = data.audio_url || `/api/audio/stream?videoId=${data.videoId}`;
-                    this.dom.audio.play().catch(err2 => console.error('Double fallback failed:', err2));
-                  }
-                });
-            };
-
-            loadAudioSource();
+            this.dom.audio.src = data.audio_url || `/api/audio/stream?videoId=${data.videoId}`;
+            this.dom.audio.muted = false;
+            this.dom.audio.loop = false;
+            this.dom.audio.play().catch(e => console.error('Primary audio stream play failed:', e));
             
             if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
               try {

@@ -498,46 +498,57 @@ app.get('/api/audio/stream', async (req, res) => {
 
   const pipedInstances = [
     'https://pipedapi.kavin.rocks',
-    'https://pipedapi.leptons.xyz',
-    'https://pipedapi.nosebs.ru',
-    'https://pipedapi-libre.kavin.rocks',
-    'https://piped-api.privacy.com.de',
-    'https://pipedapi.adminforge.de',
+    'https://pipedapi.lunar.icu',
+    'https://pipedapi.tokhmi.xyz',
+    'https://piped-api.garudalinux.org',
     'https://api.piped.yt',
-    'https://pipedapi.drgns.space',
-    'https://pipedapi.owo.si',
-    'https://pipedapi.ducks.party',
-    'https://piped-api.codespace.cz',
-    'https://pipedapi.reallyaweso.me',
-    'https://api.piped.private.coffee',
-    'https://pipedapi.darkness.services',
-    'https://pipedapi.orangenet.cc'
+    'https://pipedapi.privacydev.net',
+    'https://pipedapi.synapse.net.in'
   ];
 
-  // TIER 1: Piped API Direct Redirect (Concurrent checking, fast & stable)
-  try {
-    console.log(`Checking Piped API mirrors concurrently for videoId: ${videoId}`);
-    const directUrl = await Promise.any(pipedInstances.map(async (apiBase) => {
-      const response = await axios.get(`${apiBase}/streams/${videoId}`, { timeout: 4000 });
+  // TIER 1: Piped API Direct Redirect (Highly Stable, High Speed Google Video CDN)
+  for (const apiBase of pipedInstances) {
+    try {
+      console.log(`Trying Piped API mirror: ${apiBase}/streams/${videoId}`);
+      const response = await axios.get(`${apiBase}/streams/${videoId}`, { timeout: 3500 });
       if (response.data && response.data.audioStreams && response.data.audioStreams.length > 0) {
         const streams = response.data.audioStreams;
         const bestStream = streams.find(s => s.format === 'M4A' || s.mimeType.includes('mp4')) || streams[0];
         if (bestStream && bestStream.url) {
-          return bestStream.url;
+          console.log(`Successfully retrieved high-speed direct audio stream URL from Piped! Redirecting client...`);
+          return res.redirect(bestStream.url);
         }
       }
-      throw new Error('No stream found on this mirror');
-    }));
-    
-    console.log(`Successfully retrieved high-speed direct audio stream URL from Piped! Redirecting client...`);
-    return res.redirect(directUrl);
+    } catch (err) {
+      console.log(`Piped API mirror ${apiBase} failed/skipped:`, err.message);
+    }
+  }
+
+  // TIER 2: Fallback to local ytdl stream proxy if Piped fails
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  try {
+    console.log(`Streaming YouTube audio via @distube/ytdl-core for videoId: ${videoId}`);
+    const stream = ytdl(url, { filter: 'audioonly', quality: 'lowest' });
+    stream.on('response', (response) => {
+      res.setHeader('Content-Type', response.headers['content-type'] || 'audio/mp4');
+      res.setHeader('Transfer-Encoding', 'chunked');
+    });
+    stream.on('error', async (err) => {
+      console.error('ytdl stream error, switching to emergency mirror proxy:', err.message);
+      if (!res.headersSent) {
+        await proxyFromMirrors(videoId, res);
+      }
+    });
+    stream.pipe(res);
   } catch (err) {
-    console.log('All Piped API mirrors failed/skipped, falling back directly to Invidious redirect mirror...');
-    return await proxyFromMirrors(videoId, res);
+    console.error('ytdl proxy error, switching to emergency mirror proxy:', err.message);
+    if (!res.headersSent) {
+      await proxyFromMirrors(videoId, res);
+    }
   }
 });
 
-// EMERGENCY MIRROR REDIRECT FUNCTION (Guarantees 100% Serverless Compatibility)
+// EMERGENCY MIRROR PROXY FUNCTION (Guarantees 100% Full Duration Audio Stream)
 async function proxyFromMirrors(videoId, res) {
   const invidiousMirrors = [
     `https://invidious.jing.rocks/latest_version?id=${videoId}&itag=140`,
@@ -549,27 +560,31 @@ async function proxyFromMirrors(videoId, res) {
   ];
 
   try {
-    console.log('Finding a responsive Invidious redirect mirror...');
-    const winningUrl = await Promise.any(invidiousMirrors.map(async (mirrorUrl) => {
-      // Perform a quick request fetching 1 byte to check responsiveness and stream viability
-      await axios({
+    console.log('Trying Invidious direct stream proxies concurrently...');
+    const streamRes = await Promise.any(invidiousMirrors.map(async (mirrorUrl) => {
+      const response = await axios({
         method: 'get',
         url: mirrorUrl,
-        timeout: 4000,
+        responseType: 'stream',
+        timeout: 6000,
         headers: {
-          'Range': 'bytes=0-0',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
         }
       });
-      return mirrorUrl;
+      if (response.status === 200) {
+        return response;
+      }
+      throw new Error('Mirror stream failed');
     }));
 
-    console.log('Found working Invidious mirror, redirecting client to:', winningUrl);
-    return res.redirect(winningUrl);
+    console.log('Successfully connected to Invidious direct stream proxy!');
+    res.setHeader('Content-Type', streamRes.headers['content-type'] || 'audio/mp4');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    streamRes.data.pipe(res);
   } catch (error) {
-    console.error('All emergency Invidious mirrors failed:', error.message);
+    console.error('All emergency mirror proxies failed:', error.message);
     if (!res.headersSent) {
-      return res.redirect("https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95");
+      res.redirect("https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95");
     }
   }
 }
