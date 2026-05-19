@@ -3000,3 +3000,78 @@ body:not(.dark-theme) .cassette-bottom-head {
 .track-row.active .track-number {
   color: #1db954 !important;
 }
+
+/* ==========================================================================
+   RETRO TV MONITOR SYSTEM
+   ========================================================================== */
+.retro-tv-screen {
+  width: 100%;
+  max-width: 320px;
+  background: #141419;
+  border: 6px solid #282830;
+  border-radius: 16px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 12px;
+  margin: 16px auto 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom-width: 10px; /* Thicker bottom for authentic retro feel */
+}
+
+.tv-frame {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 3px solid #1a1a20;
+}
+
+.tv-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.tv-glare {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tv-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.tv-led {
+  width: 8px;
+  height: 8px;
+  background-color: #ff3b30;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #ff3b30;
+  transition: all 0.3s;
+}
+
+.tv-led.active {
+  background-color: #1db954;
+  box-shadow: 0 0 10px #1db954;
+}
+
+.tv-text {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}

@@ -104,9 +104,55 @@ class KasetApp {
     this.setupEventListeners();
     this.loadTheme();
     this.loadSavedCredentials();
+    this.loadYouTubeIframeAPI(); // Load the official YouTube player engine
     await this.loadPlaylists();
     await this.fetchFeaturedCatalog();
     await this.loadTrending();
+  }
+
+  loadYouTubeIframeAPI() {
+    // Global hook for YouTube Iframe API Ready state
+    window.onYouTubeIframeAPIReady = () => {
+      window.ytPlayer = new YT.Player('yt-player', {
+        height: '100%',
+        width: '100%',
+        videoId: '', // starts empty
+        playerVars: {
+          'playsinline': 1,
+          'controls': 0,
+          'disablekb': 1,
+          'fs': 0,
+          'rel': 0,
+          'modestbranding': 1,
+          'showinfo': 0,
+          'autoplay': 0
+        },
+        events: {
+          'onReady': () => {
+            console.log('YouTube Iframe Player Engine Ready.');
+            const led = document.getElementById('tv-led-indicator');
+            if (led) led.classList.add('active'); // Turn vintage TV light green
+          },
+          'onStateChange': (event) => {
+            if (event.data === YT.PlayerState.ENDED) {
+              this.handleTrackEnded();
+            }
+            if (event.data === YT.PlayerState.PLAYING) {
+              this.onPlayStateChange(true);
+            }
+            if (event.data === YT.PlayerState.PAUSED) {
+              this.onPlayStateChange(false);
+            }
+          }
+        }
+      });
+    };
+
+    // Load official YouTube script
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
   }
 
   /**
@@ -785,60 +831,110 @@ class KasetApp {
     this.dom.audio.pause();
     this.dom.audio.src = '';
     
-    if (window.ytPlayer && typeof window.ytPlayer.stopVideo === 'function') {
-      window.ytPlayer.stopVideo();
-    }
     if (this.state.ytProgressInterval) {
       clearInterval(this.state.ytProgressInterval);
     }
-    this.state.isYoutubeActive = false;
-
+    
     // Reset progress UI to loading state
     this.dom.progressFilled.style.width = '0%';
     this.dom.timeCurrent.textContent = '0:00';
     this.dom.timeTotal.textContent = this.formatTime(track.duration || 240);
     
     this.onPlayStateChange(false);
-    this.updateAudioSourceBadge(`Loading full duration stream...`);
+    this.updateAudioSourceBadge(`Searching track source...`);
 
-    // CRITICAL MOBILE AUTOPLAY BYPASS (Muted User Gesture Blessing):
-    // Synchronously play a real, valid MP3 source (Spotify preview or Jamendo) but MUTED.
-    // This successfully registers user gesture blessing on iOS Safari & Android Chrome
-    // while keeping the loading phase completely silent as requested!
-    const instantAudio = track.preview_url || 'https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95';
-    this.dom.audio.muted = true; // Silences the preview during loading
-    this.dom.audio.src = instantAudio;
-    
-    // Trigger play synchronously to bless the media element
-    this.dom.audio.play().catch(e => console.log('Instant mobile play permission acquired:', e.message));
+    // Turn Vintage TV LED Red (loading)
+    const led = document.getElementById('tv-led-indicator');
+    if (led) {
+      led.classList.remove('active');
+      led.style.backgroundColor = '#ff3b30';
+      led.style.boxShadow = '0 0 10px #ff3b30';
+    }
 
-    // Fetch full-duration audio stream directly via Python Engine / YouTube Fallback
+    // CRITICAL MOBILE AUTOPLAY BYPASS:
+    // Synchronously play/activate the official YouTube player if initialized to capture the user touch event!
+    if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
+      try {
+        window.ytPlayer.mute();
+        window.ytPlayer.playVideo();
+      } catch (e) {
+        console.log('Synchronous YouTube blessing skipped:', e.message);
+      }
+    }
+
+    // Fetch full-duration audio stream directly via our multi-tier Node search API
     fetch(`/api/audio/search?track=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`)
       .then(res => res.json())
       .then(data => {
         // Only load if the user hasn't switched tracks while loading
         if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success) {
-          // Use our secure same-origin server streaming proxy to bypass CORS/IP blocks
-          const audioUrl = data.videoId ? `/api/audio/stream?videoId=${data.videoId}` : data.audio_url;
-          track.audioSource = data.source || 'Premium Stream';
-          
-          // Smoothly transition source without calling .load() to retain iOS touch permission
-          this.dom.audio.src = audioUrl;
+          if (data.videoId) {
+            // PLAY VIA THE VISIBLE RETRO TV MONITOR IFRAME PLAYER (100% stable, bypassed CORS & Vercel streaming limitations)
+            this.state.isYoutubeActive = true;
+            track.audioSource = data.source || 'Premium Engine';
 
-          const onCanPlay = () => {
-            this.dom.audio.muted = false; // Unmute now that full duration stream is playing!
-            this.dom.audio.play().catch(e => console.error('Direct audio stream play failed:', e));
-            this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
-            this.onPlayStateChange(true);
-            this.dom.audio.removeEventListener('canplay', onCanPlay);
-          };
-          this.dom.audio.addEventListener('canplay', onCanPlay);
+            if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
+              window.ytPlayer.unMute();
+              window.ytPlayer.setVolume(this.dom.volumeSlider.value * 100);
+              window.ytPlayer.loadVideoById(data.videoId, 0);
+              window.ytPlayer.playVideo();
+              this.onPlayStateChange(true);
+              this.startYtProgressLoop();
+              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+
+              // Turn TV LED Green
+              if (led) {
+                led.classList.add('active');
+                led.style.backgroundColor = '#1db954';
+                led.style.boxShadow = '0 0 10px #1db954';
+              }
+            } else {
+              // Fail-safe if iframe API hasn't loaded, stream natively
+              this.state.isYoutubeActive = false;
+              this.dom.audio.src = `/api/audio/stream?videoId=${data.videoId}`;
+              this.dom.audio.play().catch(e => console.error('Emergency direct play failed:', e));
+              this.updateAudioSourceBadge(`Playing full duration (Emergency Fallback)`);
+            }
+          } else if (data.audio_url) {
+            // Emergency fallback for other audio files
+            this.state.isYoutubeActive = false;
+            track.audioSource = data.source || 'Premium Stream';
+            this.dom.audio.src = data.audio_url;
+            this.dom.audio.load();
+
+            const onCanPlay = () => {
+              this.dom.audio.play().catch(e => console.error('Fallback play failed:', e));
+              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+              this.onPlayStateChange(true);
+              this.dom.audio.removeEventListener('canplay', onCanPlay);
+            };
+            this.dom.audio.addEventListener('canplay', onCanPlay);
+          }
         }
       })
       .catch(err => {
         console.error('Audio load failed:', err);
         this.updateAudioSourceBadge(`Failed to load full duration stream.`);
       });
+  }
+
+  startYtProgressLoop() {
+    if (this.state.ytProgressInterval) {
+      clearInterval(this.state.ytProgressInterval);
+    }
+    this.state.ytProgressInterval = setInterval(() => {
+      if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getCurrentTime === 'function') {
+        const currentTime = window.ytPlayer.getCurrentTime();
+        const duration = window.ytPlayer.getDuration() || this.state.currentTrack.duration || 240;
+        
+        if (duration > 0) {
+          const progressPercent = (currentTime / duration) * 100;
+          this.dom.progressFilled.style.width = `${progressPercent}%`;
+          this.dom.timeCurrent.textContent = this.formatTime(currentTime);
+          this.dom.timeTotal.textContent = this.formatTime(duration);
+        }
+      }
+    }, 500);
   }
 
   updateAudioSourceBadge(text) {
@@ -852,6 +948,18 @@ class KasetApp {
         this.playTrackIndex(0);
       } else {
         this.playFeaturedTrack();
+      }
+      return;
+    }
+
+    if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getPlayerState === 'function') {
+      const state = window.ytPlayer.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) {
+        window.ytPlayer.pauseVideo();
+        this.onPlayStateChange(false);
+      } else {
+        window.ytPlayer.playVideo();
+        this.onPlayStateChange(true);
       }
       return;
     }
@@ -912,8 +1020,16 @@ class KasetApp {
   prevTrack() {
     if (this.state.tracksQueue.length === 0) return;
 
-    if (this.dom.audio.currentTime > 3) {
-      this.dom.audio.currentTime = 0;
+    const currentTime = this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getCurrentTime === 'function' 
+      ? window.ytPlayer.getCurrentTime() 
+      : this.dom.audio.currentTime;
+
+    if (currentTime > 3) {
+      if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+        window.ytPlayer.seekTo(0, true);
+      } else {
+        this.dom.audio.currentTime = 0;
+      }
       return;
     }
 
@@ -925,14 +1041,14 @@ class KasetApp {
   }
 
   handleTrackEnded() {
-    // Ignore ended events triggered by the temporary silent blessing source
-    if (this.dom.audio.src && this.dom.audio.src.startsWith('data:audio')) {
-      console.log('Ignore ended event for silent blessing');
-      return;
-    }
     if (this.state.isRepeat && !this.state.isShuffle) {
-      this.dom.audio.currentTime = 0;
-      this.dom.audio.play();
+      if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+        window.ytPlayer.seekTo(0, true);
+        window.ytPlayer.playVideo();
+      } else {
+        this.dom.audio.currentTime = 0;
+        this.dom.audio.play();
+      }
     } else {
       this.nextTrack();
     }
@@ -949,10 +1065,7 @@ class KasetApp {
   }
 
   updateProgress() {
-    // Ignore progress updates for the temporary silent blessing source
-    if (this.dom.audio.src && this.dom.audio.src.startsWith('data:audio')) {
-      return;
-    }
+    if (this.state.isYoutubeActive) return;
     const { currentTime, duration } = this.dom.audio;
     if (isNaN(duration)) return;
 
@@ -963,19 +1076,29 @@ class KasetApp {
   }
 
   seekAudio(event) {
-    const { duration } = this.dom.audio;
-    if (isNaN(duration)) return;
+    const { duration } = this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getDuration === 'function'
+      ? { duration: window.ytPlayer.getDuration() }
+      : this.dom.audio;
+
+    if (isNaN(duration) || duration <= 0) return;
 
     const rect = this.dom.progressBar.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const width = rect.width;
     const seekTime = (clickX / width) * duration;
     
-    this.dom.audio.currentTime = seekTime;
+    if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+      window.ytPlayer.seekTo(seekTime, true);
+    } else {
+      this.dom.audio.currentTime = seekTime;
+    }
   }
 
   setVolume(value) {
     this.dom.audio.volume = value;
+    if (window.ytPlayer && typeof window.ytPlayer.setVolume === 'function') {
+      window.ytPlayer.setVolume(value * 100);
+    }
   }
 
   /**
