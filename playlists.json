@@ -14,6 +14,16 @@
         "duration": 261,
         "image": "https://cdn-images.dzcdn.net/images/cover/5d284b31cb9ddeb1a0c79aede5a94e1c/500x500-000000-80-0-0.jpg",
         "preview_url": "https://cdnt-preview.dzcdn.net/api/1/1/a/b/6/0/ab6f382533bd12e8905a8141ceaed4e8.mp3?hdnea=exp=1779109429~acl=/api/1/1/a/b/6/0/ab6f382533bd12e8905a8141ceaed4e8.mp3*~data=user_id=0,application_id=42~hmac=c9c6dc50d99a1ab600cefb7604b71639243de3b16bb03f9b7f3868700f957f9e"
+      },
+      {
+        "id": "deezer_4014871391",
+        "title": "STRANGER THAN HEAVEN - Trailer Song",
+        "artist": "One Project",
+        "album": "STRANGER THAN HEAVEN - Trailer Song",
+        "duration": 232,
+        "image": "https://cdn-images.dzcdn.net/images/cover/2e013283413596fb73a9349e7aee3a72/500x500-000000-80-0-0.jpg",
+        "preview_url": "https://cdnt-preview.dzcdn.net/api/1/1/d/3/a/0/d3a9f02cdcf3a81ec00cc01319b8b5b4.mp3?hdnea=exp=1779163471~acl=/api/1/1/d/3/a/0/d3a9f02cdcf3a81ec00cc01319b8b5b4.mp3*~data=user_id=0,application_id=42~hmac=91b45b9786f073c57e243a3b801c9cbdb826021950dc9736e483d9e195e81ab1",
+        "audioSource": "Python Premium Audio (yt-dlp)"
       }
     ]
   }

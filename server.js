@@ -21,6 +21,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // In-memory cache for Spotify tokens and search results to optimize performance
 let cachedSpotifyToken = null;
 let tokenExpirationTime = null;
+const backendSearchCache = new Map();
 
 // Curated rich fallback catalog in case Spotify credentials are not provided or API fails
 const fallbackCatalog = {
@@ -236,7 +237,7 @@ app.get('/api/spotify/tracks', ensureSpotifyToken, async (req, res) => {
   }
 });
 
-// Helper function to search local fallback, Deezer, Jamendo, and iTunes catalog APIs with blistering fast timeouts
+// Helper function to search local fallback, Deezer, Jamendo, and iTunes catalog APIs concurrently (Optimized)
 async function searchExternalCatalog(q) {
   let results = [];
   const query = q.toLowerCase();
@@ -255,87 +256,94 @@ async function searchExternalCatalog(q) {
     }
   });
 
-  // 2. Try Deezer public catalog API (lightning fast, high quality metadata)
-  try {
-    const deezerRes = await axios.get(`https://api.deezer.com/search?q=${encodeURIComponent(q)}`, { timeout: 1500 });
-    if (deezerRes.data && deezerRes.data.data) {
-      deezerRes.data.data.forEach(item => {
-        const trackId = `deezer_${item.id}`;
-        if (!results.some(r => r.title.toLowerCase() === item.title.toLowerCase() && r.artist.toLowerCase() === item.artist.name.toLowerCase())) {
-          results.push({
-            id: trackId,
-            title: item.title,
-            artist: item.artist.name,
-            album: item.album.title || '',
-            duration: item.duration || 210,
-            image: item.album.cover_big || item.album.cover_medium || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80',
-            preview_url: item.preview || ''
-          });
-        }
-      });
-    }
-  } catch (e) {
-    console.error('Deezer catalog search skipped/timeout:', e.message);
-  }
+  // 2. Fetch external APIs concurrently for maximum network performance and expanded 3.5s timeouts
+  const searchPromises = [
 
-  // 3. Try Jamendo public catalog API (free royalty-free catalog)
-  try {
-    const jamendoRes = await axios.get(`https://api.jamendo.com/v3.0/tracks/?client_id=56d30c95&format=json&limit=15&namesearch=${encodeURIComponent(q)}`, { timeout: 1500 });
-    if (jamendoRes.data && jamendoRes.data.results) {
-      jamendoRes.data.results.forEach(item => {
-        const trackId = `jamendo_${item.id}`;
-        if (!results.some(r => r.title.toLowerCase() === item.name.toLowerCase() && r.artist.toLowerCase() === item.artist_name.toLowerCase())) {
-          results.push({
-            id: trackId,
+
+    // Jamendo API
+    axios.get(`https://api.jamendo.com/v3.0/tracks/?client_id=56d30c95&format=json&limit=15&namesearch=${encodeURIComponent(q)}`, { timeout: 3500 })
+      .then(res => {
+        if (res.data && res.data.results) {
+          return res.data.results.map(item => ({
+            id: `jamendo_${item.id}`,
             title: item.name,
             artist: item.artist_name,
             album: item.album_name || '',
             duration: item.duration || 200,
             image: item.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80',
             preview_url: item.audio || ''
-          });
+          }));
         }
-      });
-    }
-  } catch (e) {
-    console.error('Jamendo catalog search skipped/timeout:', e.message);
-  }
+        return [];
+      }).catch(e => {
+        console.error('Jamendo catalog search skipped:', e.message);
+        return [];
+      }),
 
-  // 4. Try iTunes public catalog API with short 1500ms timeout
-  try {
-    const itunesRes = await axios.get(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&limit=20`, { timeout: 1500 });
-    if (itunesRes.data && itunesRes.data.results) {
-      itunesRes.data.results.forEach(item => {
-        const trackId = `itunes_${item.trackId}`;
-        if (!results.some(r => r.title.toLowerCase() === item.trackName.toLowerCase() && r.artist.toLowerCase() === item.artistName.toLowerCase())) {
-          results.push({
-            id: trackId,
+    // iTunes API
+    axios.get(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&limit=20`, { timeout: 3500 })
+      .then(res => {
+        if (res.data && res.data.results) {
+          return res.data.results.map(item => ({
+            id: `itunes_${item.trackId}`,
             title: item.trackName,
             artist: item.artistName,
             album: item.collectionName || '',
             duration: Math.round((item.trackTimeMillis || 210000) / 1000),
             image: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '300x300bb') : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80',
             preview_url: item.previewUrl || ''
-          });
+          }));
         }
-      });
-    }
-  } catch (e) {
-    console.error('iTunes catalog search skipped/timeout:', e.message);
-  }
+        return [];
+      }).catch(e => {
+        console.error('iTunes catalog search skipped:', e.message);
+        return [];
+      })
+  ];
+
+  // Resolve all API promises concurrently
+  const outcomes = await Promise.all(searchPromises);
+  
+  // Combine all non-duplicate tracks securely
+  outcomes.forEach(tracksList => {
+    tracksList.forEach(item => {
+      const isDuplicate = results.some(r => 
+        (r.title.toLowerCase() === item.title.toLowerCase() && r.artist.toLowerCase() === item.artist.toLowerCase())
+      );
+      if (!isDuplicate) {
+        results.push(item);
+      }
+    });
+  });
 
   return results;
 }
 
-// Endpoint to search Spotify catalog
+// Endpoint to search Spotify catalog (Optimized with In-Memory Server Caching)
 app.get('/api/spotify/search', ensureSpotifyToken, async (req, res) => {
   const { q } = req.query;
   if (!q) {
     return res.json({ success: true, tracks: [] });
   }
 
+  const cacheKey = q.toLowerCase().trim();
+
+  // TIER 1: Check Server In-Memory Cache for Instant (2ms) Retrieval
+  if (backendSearchCache.has(cacheKey)) {
+    console.log(`[Cache Hit] Serving search results for: "${q}" instantly from server memory cache`);
+    return res.json({ success: true, source: 'spotify_cached', tracks: backendSearchCache.get(cacheKey) });
+  }
+
   if (req.useFallback) {
     const tracks = await searchExternalCatalog(q);
+    
+    // Cache the fallback tracks as well
+    if (backendSearchCache.size > 300) {
+      const firstKey = backendSearchCache.keys().next().value;
+      backendSearchCache.delete(firstKey);
+    }
+    backendSearchCache.set(cacheKey, tracks);
+
     return res.json({ success: true, source: 'multi_fallback', tracks });
   }
 
@@ -354,16 +362,52 @@ app.get('/api/spotify/search', ensureSpotifyToken, async (req, res) => {
       preview_url: t.preview_url
     }));
 
+    // Cache the successful search result
+    if (backendSearchCache.size > 300) {
+      const firstKey = backendSearchCache.keys().next().value;
+      backendSearchCache.delete(firstKey);
+    }
+    backendSearchCache.set(cacheKey, tracks);
+
     res.json({ success: true, source: 'spotify', tracks });
   } catch (error) {
     console.error('Spotify search error, using multi fallback:', error.message);
     const tracks = await searchExternalCatalog(q);
+    
+    // Cache the fallback tracks
+    if (backendSearchCache.size > 300) {
+      const firstKey = backendSearchCache.keys().next().value;
+      backendSearchCache.delete(firstKey);
+    }
+    backendSearchCache.set(cacheKey, tracks);
+
     return res.json({ success: true, source: 'multi_fallback', tracks });
   }
 });
 
+// HELPER: Access High-Quality Direct Stream URL via Python yt-dlp Engine
+function getPythonAudioStream(query) {
+  return new Promise((resolve, reject) => {
+    const { exec } = require('child_process');
+    // Escape query parameters carefully to avoid injection
+    const escapedQuery = query.replace(/[\\"`$]/g, '\\$&');
+    console.log(`Executing Python yt-dlp engine for query: "${escapedQuery}"`);
+    exec(`python get_stream.py "${escapedQuery}"`, (error, stdout, stderr) => {
+      if (error) {
+        return reject(error);
+      }
+      try {
+        const data = JSON.parse(stdout);
+        resolve(data);
+      } catch (e) {
+        reject(new Error(`Failed to parse Python stdout: ${stdout}`));
+      }
+    });
+  });
+}
+
 // FULL DURATION AUDIO SEARCH ENDPOINT
-// Multi-Tier Audio Engine: YT Music (Piped/Invidious) -> JioSaavn -> Deezer -> iTunes
+// Multi-Tier Audio Engine: Python yt-dlp -> YouTube API -> Deezer -> iTunes
 app.get('/api/audio/search', async (req, res) => {
   const { track, artist } = req.query;
   if (!track) {
@@ -373,25 +417,43 @@ app.get('/api/audio/search', async (req, res) => {
   const query = `${track} ${artist || ''}`.trim();
   console.log(`Searching audio stream for: "${query}"`);
 
-  // TIER 1: Deezer API (Fast, Reliable, High Quality Preview)
+  // TIER 0: Python Premium Audio Engine (yt-dlp)
   try {
-    console.log(`Searching Deezer API for exact song preview...`);
-    const deezerRes = await axios.get(`https://api.deezer.com/search?q=${encodeURIComponent(query)}`, { timeout: 3500 });
-    if (deezerRes.data && deezerRes.data.data && deezerRes.data.data.length > 0) {
-      const song = deezerRes.data.data[0];
-      if (song.preview) {
-        console.log(`Found exact song preview via Deezer API: ${song.title}`);
-        return res.json({
-          success: true,
-          audio_url: song.preview,
-          duration: song.duration || 30,
-          source: 'Deezer Official Preview'
-        });
-      }
+    const data = await getPythonAudioStream(query);
+    if (data && data.success && data.audio_url) {
+      console.log(`Successfully extracted direct high-quality URL via Python yt-dlp for: ${query}`);
+      return res.json({
+        success: true,
+        videoId: data.videoId,
+        audio_url: data.audio_url,
+        duration: data.duration || 240,
+        source: 'Python Premium Audio (yt-dlp)'
+      });
     }
   } catch (e) {
-    console.log(`Deezer API search skipped/failed:`, e.message);
+    console.log(`Python premium audio engine skipped/failed:`, e.message);
   }
+
+  // TIER 1: YouTube Search Fallback
+  try {
+    console.log(`Searching YouTube Search for videoId...`);
+    const r = await yts(query);
+    if (r && r.videos && r.videos.length > 0) {
+      const topVideo = r.videos[0];
+      console.log(`Found YouTube videoId: ${topVideo.videoId} for track: ${track}`);
+      return res.json({
+        success: true,
+        videoId: topVideo.videoId,
+        audio_url: `/api/audio/stream?videoId=${topVideo.videoId}`,
+        duration: topVideo.seconds || 240,
+        source: 'YouTube Full Audio'
+      });
+    }
+  } catch (e) {
+    console.log(`YouTube Search Tier 1 skipped/failed:`, e.message);
+  }
+
+
 
   // TIER 2: iTunes API Backup
   try {

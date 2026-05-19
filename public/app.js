@@ -781,36 +781,78 @@ class KasetApp {
     const activeRows = document.querySelectorAll('.track-row');
     if (activeRows[index]) activeRows[index].classList.add('active');
 
-    // INSTANT PLAYBACK (Zero Delay Guarantee)
-    const instantAudio = track.preview_url || 'https://prod-1.storage.jamendo.com/?trackid=1884964&format=mp31&from=app-56d30c95';
-    track.audioSource = track.preview_url ? 'Spotify Preview (30s)' : 'Curated Stream';
-    this.dom.audio.src = instantAudio;
-    this.dom.audio.play().catch(e => console.error('Instant play failed:', e));
-    this.updateAudioSourceBadge(`Playing ${track.audioSource} • Searching full stream...`);
+    // Clean up active audio and YouTube playback before starting new track
+    this.dom.audio.pause();
+    this.dom.audio.src = '';
+    
+    if (window.ytPlayer && typeof window.ytPlayer.stopVideo === 'function') {
+      window.ytPlayer.stopVideo();
+    }
+    if (this.state.ytProgressInterval) {
+      clearInterval(this.state.ytProgressInterval);
+    }
+    this.state.isYoutubeActive = false;
 
-    // Background search for full duration audio
+    // Reset progress UI to loading state
+    this.dom.progressFilled.style.width = '0%';
+    this.dom.timeCurrent.textContent = '0:00';
+    this.dom.timeTotal.textContent = this.formatTime(track.duration || 240);
+    
+    this.onPlayStateChange(false);
+    this.updateAudioSourceBadge(`Loading full duration stream...`);
+
+    // Fetch full-duration audio stream directly via Python Engine / YouTube Fallback
     fetch(`/api/audio/search?track=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`)
       .then(res => res.json())
       .then(data => {
-        // Only upgrade if the user hasn't switched tracks while waiting
-        if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success && data.audio_url) {
-          const currentTime = this.dom.audio.currentTime;
-          track.audioSource = data.source || 'Stream';
-          this.dom.audio.src = data.audio_url;
-          this.dom.audio.load();
+        // Only load if the user hasn't switched tracks while loading
+        if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success) {
+          if (data.videoId) {
+            // Found a YouTube videoId for full-duration! Play securely via client-side YouTube Player
+            this.state.isYoutubeActive = true;
+            track.audioSource = data.source || 'Premium Audio Engine';
+            
+            if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
+              window.ytPlayer.loadVideoById(data.videoId, 0);
+              window.ytPlayer.playVideo();
+              this.onPlayStateChange(true);
+              this.startYtProgressLoop();
+              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+            } else {
+              // Fail-safe if YouTube player api isn't ready yet, load stream natively if possible
+              if (data.audio_url) {
+                this.state.isYoutubeActive = false;
+                this.dom.audio.src = data.audio_url;
+                this.dom.audio.load();
+                
+                const onCanPlay = () => {
+                  this.dom.audio.play().catch(e => console.error('Audio play failed:', e));
+                  this.updateAudioSourceBadge(`Playing full duration (Direct Stream fallback)`);
+                  this.onPlayStateChange(true);
+                  this.dom.audio.removeEventListener('canplay', onCanPlay);
+                };
+                this.dom.audio.addEventListener('canplay', onCanPlay);
+              }
+            }
+          } else if (data.audio_url) {
+            // Fallback to standard direct HTTP stream link if no videoId was returned
+            track.audioSource = data.source || 'Stream';
+            this.dom.audio.src = data.audio_url;
+            this.dom.audio.load();
 
-          const onCanPlay = () => {
-            this.dom.audio.currentTime = currentTime;
-            this.dom.audio.play().catch(e => console.error('Full stream play failed:', e));
-            this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
-            this.dom.audio.removeEventListener('canplay', onCanPlay);
-          };
-          this.dom.audio.addEventListener('canplay', onCanPlay);
+            const onCanPlay = () => {
+              this.dom.audio.play().catch(e => console.error('Full stream play failed:', e));
+              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+              this.onPlayStateChange(true);
+              this.dom.audio.removeEventListener('canplay', onCanPlay);
+            };
+            this.dom.audio.addEventListener('canplay', onCanPlay);
+          }
         }
       })
       .catch(err => {
-        console.log('Background audio search finished/failed, keeping instant stream:', err);
-        this.updateAudioSourceBadge(`Playing ${track.audioSource}`);
+        console.error('Audio load failed:', err);
+        this.updateAudioSourceBadge(`Failed to load full duration stream.`);
       });
   }
 
