@@ -881,7 +881,15 @@ class KasetApp {
     }
 
     // CRITICAL MOBILE AUTOPLAY BYPASS:
-    // Synchronously play/activate the official YouTube player if initialized to capture the user touch event!
+    // Synchronously activate/bless both native audio and YouTube player under the user's touch event boundary!
+    try {
+      this.dom.audio.play()
+        .then(() => this.dom.audio.pause())
+        .catch(e => console.log('Audio touch blessing:', e.message));
+    } catch (err) {
+      console.log('Audio touch blessing error:', err.message);
+    }
+
     if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
       try {
         window.ytPlayer.mute();

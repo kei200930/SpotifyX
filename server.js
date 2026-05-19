@@ -498,30 +498,41 @@ app.get('/api/audio/stream', async (req, res) => {
 
   const pipedInstances = [
     'https://pipedapi.kavin.rocks',
-    'https://pipedapi.lunar.icu',
-    'https://pipedapi.tokhmi.xyz',
-    'https://piped-api.garudalinux.org',
+    'https://pipedapi.leptons.xyz',
+    'https://pipedapi.nosebs.ru',
+    'https://pipedapi-libre.kavin.rocks',
+    'https://piped-api.privacy.com.de',
+    'https://pipedapi.adminforge.de',
     'https://api.piped.yt',
-    'https://pipedapi.privacydev.net',
-    'https://pipedapi.synapse.net.in'
+    'https://pipedapi.drgns.space',
+    'https://pipedapi.owo.si',
+    'https://pipedapi.ducks.party',
+    'https://piped-api.codespace.cz',
+    'https://pipedapi.reallyaweso.me',
+    'https://api.piped.private.coffee',
+    'https://pipedapi.darkness.services',
+    'https://pipedapi.orangenet.cc'
   ];
 
-  // TIER 1: Piped API Direct Redirect (Highly Stable, High Speed Google Video CDN)
-  for (const apiBase of pipedInstances) {
-    try {
-      console.log(`Trying Piped API mirror: ${apiBase}/streams/${videoId}`);
-      const response = await axios.get(`${apiBase}/streams/${videoId}`, { timeout: 3500 });
+  // TIER 1: Piped API Direct Redirect (Concurrent checking, fast & stable)
+  try {
+    console.log(`Checking Piped API mirrors concurrently for videoId: ${videoId}`);
+    const directUrl = await Promise.any(pipedInstances.map(async (apiBase) => {
+      const response = await axios.get(`${apiBase}/streams/${videoId}`, { timeout: 4000 });
       if (response.data && response.data.audioStreams && response.data.audioStreams.length > 0) {
         const streams = response.data.audioStreams;
         const bestStream = streams.find(s => s.format === 'M4A' || s.mimeType.includes('mp4')) || streams[0];
         if (bestStream && bestStream.url) {
-          console.log(`Successfully retrieved high-speed direct audio stream URL from Piped! Redirecting client...`);
-          return res.redirect(bestStream.url);
+          return bestStream.url;
         }
       }
-    } catch (err) {
-      console.log(`Piped API mirror ${apiBase} failed/skipped:`, err.message);
-    }
+      throw new Error('No stream found on this mirror');
+    }));
+    
+    console.log(`Successfully retrieved high-speed direct audio stream URL from Piped! Redirecting client...`);
+    return res.redirect(directUrl);
+  } catch (err) {
+    console.log('All Piped API mirrors failed/skipped, falling back to local ytdl...');
   }
 
   // TIER 2: Fallback to local ytdl stream proxy if Piped fails
