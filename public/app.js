@@ -18,7 +18,9 @@ class KasetApp {
       catalogSource: 'fallback',
       searchQuery: '',
       customPlaylists: [],
-      trackAddingToPlaylist: null
+      trackAddingToPlaylist: null,
+      dataSaver: false,
+      videoMode: false
     };
 
     // DOM Elements Cache
@@ -104,6 +106,7 @@ class KasetApp {
     this.setupEventListeners();
     this.loadTheme();
     this.loadSavedCredentials();
+    this.loadPreferences();
     this.loadYouTubeIframeAPI(); // Load the official YouTube player engine
     await this.loadPlaylists();
     await this.fetchFeaturedCatalog();
@@ -303,11 +306,131 @@ class KasetApp {
 
   openSettingsModal() {
     this.dom.settingsModal.classList.remove('hidden');
+    // Sync checkbox states with current state
+    const dsCheck = document.getElementById('settings-data-saver');
+    const vmCheck = document.getElementById('settings-video-mode');
+    if (dsCheck) dsCheck.checked = this.state.dataSaver;
+    if (vmCheck) vmCheck.checked = this.state.videoMode;
   }
 
   closeSettingsModal() {
     this.dom.settingsModal.classList.add('hidden');
     this.dom.settingsStatusMsg.classList.add('hidden');
+  }
+
+  loadPreferences() {
+    const savedDataSaver = localStorage.getItem('kaset_data_saver');
+    const savedVideoMode = localStorage.getItem('kaset_video_mode');
+
+    // Default: data saver is false, videoMode is false (audio-first to save data by default)
+    this.state.dataSaver = savedDataSaver === 'true';
+    this.state.videoMode = savedVideoMode === 'true';
+
+    // Synchronize UI
+    this.updateSettingsUI();
+  }
+
+  toggleDataSaverMode(enabled) {
+    this.state.dataSaver = enabled;
+    localStorage.setItem('kaset_data_saver', enabled ? 'true' : 'false');
+    // If data saver is enabled, force video mode off to save bandwidth
+    if (enabled && this.state.videoMode) {
+      this.toggleVideoModeSetting(false);
+      const vmCheck = document.getElementById('settings-video-mode');
+      if (vmCheck) vmCheck.checked = false;
+    }
+    this.updateSettingsUI();
+  }
+
+  toggleVideoModeSetting(enabled) {
+    // If data saver is enabled, prevent turning on video mode
+    if (enabled && this.state.dataSaver) {
+      alert('Nonaktifkan Mode Hemat Data terlebih dahulu untuk mengaktifkan Mode Video!');
+      const vmCheck = document.getElementById('settings-video-mode');
+      if (vmCheck) vmCheck.checked = false;
+      return;
+    }
+    this.state.videoMode = enabled;
+    localStorage.setItem('kaset_video_mode', enabled ? 'true' : 'false');
+    this.updateSettingsUI();
+  }
+
+  toggleVideoMode() {
+    // Toggles the video mode state directly (physical switch on the TV Bezel)
+    this.toggleVideoModeSetting(!this.state.videoMode);
+    // Sync settings modal checkbox if it's open
+    const vmCheck = document.getElementById('settings-video-mode');
+    if (vmCheck) vmCheck.checked = this.state.videoMode;
+  }
+
+  updateSettingsUI() {
+    const tvStandby = document.getElementById('tv-standby');
+    const tvPowerBtn = document.getElementById('tv-power-btn');
+    const tvLed = document.getElementById('tv-led-indicator');
+
+    if (this.state.videoMode) {
+      if (tvStandby) tvStandby.classList.add('hidden');
+      if (tvPowerBtn) tvPowerBtn.classList.add('active');
+      if (tvLed) {
+        tvLed.classList.add('active');
+        tvLed.style.backgroundColor = '#1db954';
+        tvLed.style.boxShadow = '0 0 10px #1db954';
+      }
+    } else {
+      if (tvStandby) tvStandby.classList.remove('hidden');
+      if (tvPowerBtn) tvPowerBtn.classList.remove('active');
+      if (tvLed) {
+        tvLed.classList.remove('active');
+        tvLed.style.backgroundColor = '#ff3b30';
+        tvLed.style.boxShadow = '0 0 10px #ff3b30';
+      }
+    }
+  }
+
+  updateMediaSession(track) {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: track.album || 'Single',
+        artwork: [
+          { src: track.image || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300', sizes: '300x300', type: 'image/jpeg' }
+        ]
+      });
+
+      // Register system lock screen media controls
+      navigator.mediaSession.setActionHandler('play', () => {
+        this.togglePlayPause();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        this.togglePlayPause();
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        this.prevTrack();
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        this.nextTrack();
+      });
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        const duration = this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.getDuration === 'function'
+          ? window.ytPlayer.getDuration()
+          : this.dom.audio.duration;
+
+        if (isNaN(duration) || duration <= 0) return;
+
+        let seekTime = details.seekTime;
+        if (details.fastSeek && 'fastSeek' in this.dom.audio && !this.state.isYoutubeActive) {
+          this.dom.audio.fastSeek(seekTime);
+          return;
+        }
+
+        if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
+          window.ytPlayer.seekTo(seekTime, true);
+        } else {
+          this.dom.audio.currentTime = seekTime;
+        }
+      });
+    }
   }
 
   /**
@@ -852,23 +975,34 @@ class KasetApp {
     }
 
     // CRITICAL MOBILE AUTOPLAY BYPASS:
-    // Synchronously play/activate the official YouTube player if initialized to capture the user touch event!
-    if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
+    // Synchronously play/activate the official YouTube player or HTML5 audio player to capture the user touch event!
+    if (this.state.videoMode && !this.state.dataSaver && window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
       try {
         window.ytPlayer.mute();
         window.ytPlayer.playVideo();
       } catch (e) {
         console.log('Synchronous YouTube blessing skipped:', e.message);
       }
+    } else {
+      // Synchronously activate the native HTML5 audio element for mobile browsers!
+      // This loads a highly compatible silent MP3 data URI and plays it to bless and unlock the media element.
+      try {
+        this.dom.audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQDkAAAAAAAAAGw9wrNaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+MYxAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+        this.dom.audio.play().catch(e => console.log('Audio blessing pending gesture:', e.message));
+      } catch (e) {
+        console.log('Synchronous Audio blessing skipped:', e.message);
+      }
     }
 
     // Fetch full-duration audio stream directly via our multi-tier Node search API
-    fetch(`/api/audio/search?track=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`)
+    fetch(`/api/audio/search?track=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&dataSaver=${this.state.dataSaver}`)
       .then(res => res.json())
       .then(data => {
         // Only load if the user hasn't switched tracks while loading
         if (this.state.currentTrack && this.state.currentTrack.id === track.id && data.success) {
-          if (data.videoId) {
+          const playVideo = this.state.videoMode && !this.state.dataSaver && data.videoId;
+
+          if (playVideo) {
             // PLAY VIA THE VISIBLE RETRO TV MONITOR IFRAME PLAYER (100% stable, bypassed CORS & Vercel streaming limitations)
             this.state.isYoutubeActive = true;
             track.audioSource = data.source || 'Premium Engine';
@@ -895,21 +1029,49 @@ class KasetApp {
               this.dom.audio.play().catch(e => console.error('Emergency direct play failed:', e));
               this.updateAudioSourceBadge(`Playing full duration (Emergency Fallback)`);
             }
-          } else if (data.audio_url) {
-            // Emergency fallback for other audio files
+          } else {
+            // PLAY VIA THE STABLE BACKGROUND HTML5 AUDIO PLAYER
             this.state.isYoutubeActive = false;
             track.audioSource = data.source || 'Premium Stream';
-            this.dom.audio.src = data.audio_url;
-            this.dom.audio.load();
 
-            const onCanPlay = () => {
-              this.dom.audio.play().catch(e => console.error('Fallback play failed:', e));
-              this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
-              this.onPlayStateChange(true);
-              this.dom.audio.removeEventListener('canplay', onCanPlay);
-            };
-            this.dom.audio.addEventListener('canplay', onCanPlay);
+            // Mute / Pause YouTube video if playing
+            if (window.ytPlayer && typeof window.ytPlayer.pauseVideo === 'function') {
+              try {
+                window.ytPlayer.pauseVideo();
+              } catch (e) {}
+            }
+
+            // Set audio source (using our range-request proxy for direct audio URLs to bypass CORS and support seeking)
+            if (data.audio_url) {
+              if (data.audio_url.startsWith('http') && !data.audio_url.includes('jamendo.com') && !data.audio_url.includes('itunes.apple.com')) {
+                this.dom.audio.src = `/api/audio/proxy?url=${encodeURIComponent(data.audio_url)}`;
+              } else {
+                this.dom.audio.src = data.audio_url;
+              }
+            } else if (data.videoId) {
+              this.dom.audio.src = `/api/audio/stream?videoId=${data.videoId}`;
+            }
+
+            // Play directly without waiting for canplay event listener (which is blocked by mobile engines)
+            this.dom.audio.play()
+              .then(() => {
+                this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+                this.onPlayStateChange(true);
+              })
+              .catch(e => {
+                console.warn('Direct play failed, executing fallback load & play:', e.message);
+                this.dom.audio.load();
+                this.dom.audio.play()
+                  .then(() => {
+                    this.updateAudioSourceBadge(`Playing full duration (${track.audioSource})`);
+                    this.onPlayStateChange(true);
+                  })
+                  .catch(err => console.error('Final fallback play failed:', err.message));
+              });
           }
+
+          // Update system lock screen controls
+          this.updateMediaSession(track);
         }
       })
       .catch(err => {
@@ -1041,6 +1203,12 @@ class KasetApp {
   }
 
   handleTrackEnded() {
+    // Ignore ended event for synchronous silent WAV/MP3 autoplay blessing tracks to prevent rapid skipping loops
+    if (this.dom.audio.src && this.dom.audio.src.startsWith('data:')) {
+      console.log('Ignored ended event for silent blessing track.');
+      return;
+    }
+
     if (this.state.isRepeat && !this.state.isShuffle) {
       if (this.state.isYoutubeActive && window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
         window.ytPlayer.seekTo(0, true);

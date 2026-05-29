@@ -136,9 +136,148 @@ async function ensureSpotifyToken(req, res, next) {
   next();
 }
 
+// Dynamic Fallback Catalog Helpers using Deezer Charts & Search API
+async function updateFallbackCatalog() {
+  try {
+    console.log('Fetching live music charts from Deezer to build dynamic fallback catalog...');
+    const response = await axios.get('https://api.deezer.com/chart', { timeout: 5000 });
+    if (response.data) {
+      const data = response.data;
+      
+      // 1. Dynamic Global Top Hits
+      if (data.tracks && data.tracks.data && data.tracks.data.length > 0) {
+        const topTracks = data.tracks.data.map((t, idx) => ({
+          id: `deezer_${t.id}`,
+          title: t.title,
+          artist: t.artist.name,
+          album: t.album.title,
+          duration: t.duration,
+          image: t.album.cover_medium || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500&auto=format&fit=crop&q=80',
+          preview_url: t.preview || ''
+        }));
+        fallbackCatalog.featured_playlists[0].tracks = topTracks;
+        fallbackCatalog.featured_playlists[0].image = topTracks[0].image;
+      }
+
+      // 2. Dynamic Chill Vibes (Search Deezer for "chill" tracks)
+      try {
+        const chillRes = await axios.get('https://api.deezer.com/search?q=chill&limit=15', { timeout: 4000 });
+        if (chillRes.data && chillRes.data.data && chillRes.data.data.length > 0) {
+          const chillTracks = chillRes.data.data.map(t => ({
+            id: `deezer_${t.id}`,
+            title: t.title,
+            artist: t.artist.name,
+            album: t.album.title,
+            duration: t.duration,
+            image: t.album.cover_medium || 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=500&auto=format&fit=crop&q=80',
+            preview_url: t.preview || ''
+          }));
+          fallbackCatalog.featured_playlists[1].tracks = chillTracks;
+          fallbackCatalog.featured_playlists[1].image = chillTracks[0].image;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch chill vibes from Deezer:', e.message);
+      }
+
+      // 3. Dynamic Indie & Rock (Search Deezer for "indie rock" tracks)
+      try {
+        const indieRes = await axios.get('https://api.deezer.com/search?q=indie rock&limit=15', { timeout: 4000 });
+        if (indieRes.data && indieRes.data.data && indieRes.data.data.length > 0) {
+          const indieTracks = indieRes.data.data.map(t => ({
+            id: `deezer_${t.id}`,
+            title: t.title,
+            artist: t.artist.name,
+            album: t.album.title,
+            duration: t.duration,
+            image: t.album.cover_medium || 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=500&auto=format&fit=crop&q=80',
+            preview_url: t.preview || ''
+          }));
+          fallbackCatalog.featured_playlists[2].tracks = indieTracks;
+          fallbackCatalog.featured_playlists[2].image = indieTracks[0].image;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch indie rock from Deezer:', e.message);
+      }
+
+      // 4. Dynamic Trending Artists (Add Best of Artist playlists)
+      if (data.artists && data.artists.data && data.artists.data.length > 0) {
+        fallbackCatalog.featured_playlists = fallbackCatalog.featured_playlists.slice(0, 3);
+        const topArtists = data.artists.data.slice(0, 3);
+        for (const artist of topArtists) {
+          try {
+            const artistTracksRes = await axios.get(`https://api.deezer.com/artist/${artist.id}/top?limit=12`, { timeout: 3000 });
+            if (artistTracksRes.data && artistTracksRes.data.data && artistTracksRes.data.data.length > 0) {
+              const artistTracks = artistTracksRes.data.data.map(t => ({
+                id: `deezer_${t.id}`,
+                title: t.title,
+                artist: t.artist.name,
+                album: t.album.title,
+                duration: t.duration,
+                image: t.album.cover_medium || artist.picture_medium || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80',
+                preview_url: t.preview || ''
+              }));
+              fallbackCatalog.featured_playlists.push({
+                id: `artist_pl_${artist.id}`,
+                name: `Best of ${artist.name}`,
+                description: `Trending hits and classic tracks from ${artist.name}.`,
+                image: artist.picture_medium || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80',
+                tracks: artistTracks
+              });
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch top tracks for artist ${artist.name}:`, e.message);
+          }
+        }
+      }
+
+      // 5. Dynamic New Releases (Albums)
+      if (data.albums && data.albums.data && data.albums.data.length > 0) {
+        fallbackCatalog.new_releases = data.albums.data.map(album => ({
+          id: `deezeralbum_${album.id}`,
+          title: album.title,
+          artist: album.artist.name,
+          album: album.title,
+          image: album.cover_medium || 'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?w=500&auto=format&fit=crop&q=80',
+          type: 'album'
+        }));
+      }
+      console.log('Dynamic fallback catalog successfully synchronized with Deezer charts.');
+    }
+  } catch (err) {
+    console.error('Deezer dynamic chart sync failed:', err.message);
+  }
+}
+
+// Helper to fetch Deezer Album Tracks
+async function getDeezerAlbumTracks(albumId) {
+  try {
+    const res = await axios.get(`https://api.deezer.com/album/${albumId}/tracks`, { timeout: 3500 });
+    if (res.data && res.data.data) {
+      const albumInfo = await axios.get(`https://api.deezer.com/album/${albumId}`, { timeout: 3000 }).catch(() => null);
+      const albumImage = albumInfo && albumInfo.data ? albumInfo.data.cover_medium : '';
+      const albumName = albumInfo && albumInfo.data ? albumInfo.data.title : '';
+      return res.data.data.map(t => ({
+        id: `deezer_${t.id}`,
+        title: t.title,
+        artist: t.artist.name,
+        album: albumName,
+        duration: t.duration,
+        image: albumImage || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80',
+        preview_url: t.preview || ''
+      }));
+    }
+  } catch (e) {
+    console.error('Failed to fetch Deezer album tracks:', e.message);
+  }
+  return null;
+}
+
 // Endpoint to fetch Spotify Featured Playlists / Fallback Catalog
 app.get('/api/spotify/featured', ensureSpotifyToken, async (req, res) => {
   if (req.useFallback) {
+    if (fallbackCatalog.featured_playlists.length <= 3) {
+      updateFallbackCatalog(); // refresh asynchronously in background
+    }
     return res.json({ success: true, source: 'fallback', data: fallbackCatalog });
   }
 
@@ -190,6 +329,15 @@ app.get('/api/spotify/tracks', ensureSpotifyToken, async (req, res) => {
   const { id, type } = req.query;
 
   if (req.useFallback || !id) {
+    // Check if it's a dynamic Deezer album
+    if (id && id.startsWith('deezeralbum_')) {
+      const albumId = id.replace('deezeralbum_', '');
+      const tracks = await getDeezerAlbumTracks(albumId);
+      if (tracks) {
+        return res.json({ success: true, source: 'deezer_album', tracks });
+      }
+    }
+
     // Find in fallback catalog
     let foundPlaylist = fallbackCatalog.featured_playlists.find(p => p.id === id);
     if (foundPlaylist) {
@@ -386,13 +534,14 @@ app.get('/api/spotify/search', ensureSpotifyToken, async (req, res) => {
 });
 
 // HELPER: Access High-Quality Direct Stream URL via Python yt-dlp Engine
-function getPythonAudioStream(query) {
+function getPythonAudioStream(query, dataSaver = false) {
   return new Promise((resolve, reject) => {
     const { exec } = require('child_process');
     // Escape query parameters carefully to avoid injection
     const escapedQuery = query.replace(/[\\"`$]/g, '\\$&');
-    console.log(`Executing Python yt-dlp engine for query: "${escapedQuery}"`);
-    exec(`python get_stream.py "${escapedQuery}"`, (error, stdout, stderr) => {
+    const cmd = `python get_stream.py "${escapedQuery}"${dataSaver ? ' --data-saver' : ''}`;
+    console.log(`Executing Python yt-dlp engine with cmd: ${cmd}`);
+    exec(cmd, (error, stdout, stderr) => {
       if (error) {
         return reject(error);
       }
@@ -409,25 +558,26 @@ function getPythonAudioStream(query) {
 // FULL DURATION AUDIO SEARCH ENDPOINT
 // Multi-Tier Audio Engine: Python yt-dlp -> YouTube API -> Deezer -> iTunes
 app.get('/api/audio/search', async (req, res) => {
-  const { track, artist } = req.query;
+  const { track, artist, dataSaver } = req.query;
   if (!track) {
     return res.status(400).json({ success: false, message: 'Track name is required' });
   }
 
+  const isDataSaver = dataSaver === 'true';
   const query = `${track} ${artist || ''}`.trim();
-  console.log(`Searching audio stream for: "${query}"`);
+  console.log(`Searching audio stream for: "${query}" (Data Saver: ${isDataSaver})`);
 
   // TIER 0: Python Premium Audio Engine (yt-dlp)
   try {
-    const data = await getPythonAudioStream(query);
+    const data = await getPythonAudioStream(query, isDataSaver);
     if (data && data.success && data.audio_url) {
-      console.log(`Successfully extracted direct high-quality URL via Python yt-dlp for: ${query}`);
+      console.log(`Successfully extracted direct audio URL via Python yt-dlp for: ${query}`);
       return res.json({
         success: true,
         videoId: data.videoId,
         audio_url: data.audio_url,
         duration: data.duration || 240,
-        source: 'Python Premium Audio (yt-dlp)'
+        source: isDataSaver ? 'Python Data Saver (yt-dlp)' : 'Python Premium Audio (yt-dlp)'
       });
     }
   } catch (e) {
@@ -452,8 +602,6 @@ app.get('/api/audio/search', async (req, res) => {
   } catch (e) {
     console.log(`YouTube Search Tier 1 skipped/failed:`, e.message);
   }
-
-
 
   // TIER 2: iTunes API Backup
   try {
@@ -489,6 +637,58 @@ app.get('/api/audio/search', async (req, res) => {
     duration: 215,
     source: 'Curated Fallback Stream'
   });
+});
+
+// DIRECT AUDIO STREAM PROXY (With Range Requests for CORS bypass and seamless seeking)
+app.get('/api/audio/proxy', async (req, res) => {
+  const { url } = req.query;
+  if (!url) {
+    return res.status(400).send('No url provided');
+  }
+
+  try {
+    const headers = {};
+    if (req.headers.range) {
+      headers['Range'] = req.headers.range;
+    }
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+    const response = await axios({
+      method: 'get',
+      url: url,
+      headers: headers,
+      responseType: 'stream',
+      timeout: 15000
+    });
+
+    // Forward response headers
+    if (response.headers['content-type']) {
+      res.setHeader('Content-Type', response.headers['content-type']);
+    } else {
+      res.setHeader('Content-Type', 'audio/mp4');
+    }
+
+    if (response.headers['content-length']) {
+      res.setHeader('Content-Length', response.headers['content-length']);
+    }
+
+    if (response.headers['content-range']) {
+      res.setHeader('Content-Range', response.headers['content-range']);
+      res.status(206); // Partial Content
+    } else {
+      res.status(response.status);
+    }
+
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('Audio proxy error:', error.message);
+    if (!res.headersSent) {
+      res.status(500).send('Audio proxy failed: ' + error.message);
+    }
+  }
 });
 
 // DIRECT YOUTUBE AUDIO STREAM PROXY ENDPOINT
@@ -720,6 +920,9 @@ app.post('/api/playlists', (req, res) => {
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// Trigger dynamic catalog update on startup
+updateFallbackCatalog();
 
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {

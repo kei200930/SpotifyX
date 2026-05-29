@@ -8,7 +8,10 @@ def main():
         return
         
     query = sys.argv[1]
-    
+    data_saver = False
+    if len(sys.argv) > 2 and sys.argv[2] == '--data-saver':
+        data_saver = True
+        
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -29,8 +32,12 @@ def main():
                 formats = video.get('formats', [])
                 audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('url')]
                 
-                # Sort by average bitrate (abr) in descending order to get the highest quality stream
-                audio_formats.sort(key=lambda f: f.get('abr', 0) or 0, reverse=True)
+                if data_saver:
+                    # Sort by average bitrate (abr) in ascending order to get the lowest quality stream
+                    audio_formats.sort(key=lambda f: f.get('abr', 999) or 999, reverse=False)
+                else:
+                    # Sort by average bitrate (abr) in descending order to get the highest quality stream
+                    audio_formats.sort(key=lambda f: f.get('abr', 0) or 0, reverse=True)
                 
                 if audio_formats:
                     best_audio = audio_formats[0]

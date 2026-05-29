@@ -3334,3 +3334,143 @@ body:not(.dark-theme) .cassette-bottom-head {
     width: auto;
   }
 }
+
+/* Premium switch toggles for settings */
+.switch-container input:checked + .switch-slider {
+  background-color: #1db954 !important;
+  border-color: #1db954 !important;
+}
+
+.switch-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: .3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.switch-container input:checked + .switch-slider::before {
+  transform: translateX(20px);
+}
+
+/* TV Standby Oscilloscope screen styling */
+.tv-standby {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, #0f1c12 0%, #050805 100%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+  overflow: hidden;
+}
+
+.tv-standby.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Subtle glowing CRT grid pattern */
+.tv-standby::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: 15px 15px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+  pointer-events: none;
+}
+
+.oscilloscope-container {
+  width: 80%;
+  height: 60%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.oscilloscope-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Oscilloscope line design & animations */
+.oscilloscope-wave-static {
+  stroke: rgba(29, 185, 84, 0.15);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.oscilloscope-wave {
+  fill: none;
+  stroke: #1db954;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(29, 185, 84, 0.8));
+}
+
+.oscilloscope-wave.wave-1 {
+  stroke-dasharray: 200;
+  animation: osc-draw-1 4s linear infinite;
+}
+
+.oscilloscope-wave.wave-2 {
+  stroke-dasharray: 200;
+  stroke: #00ff66;
+  opacity: 0.6;
+  animation: osc-draw-2 5s linear infinite;
+  transform: scaleY(-0.8) translateY(-25px);
+  transform-origin: center;
+}
+
+@keyframes osc-draw-1 {
+  0% { stroke-dashoffset: 400; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes osc-draw-2 {
+  0% { stroke-dashoffset: -400; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.standby-label {
+  margin-top: 12px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #1db954;
+  text-shadow: 0 0 6px rgba(29, 185, 84, 0.8);
+  animation: standby-blink 1.5s infinite alternate;
+}
+
+@keyframes standby-blink {
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+/* Interactive active power button styling */
+.tv-power-btn.active {
+  background: linear-gradient(180deg, #39ff14 0%, #1db954 100%) !important;
+  border-color: #39ff14 !important;
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.8),
+              0 2px 4px rgba(0, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+}
