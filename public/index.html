@@ -344,25 +344,12 @@
           <div class="retro-tv-screen">
             <div class="tv-frame">
               <div id="yt-player"></div>
-              <!-- Skeuomorphic CRT Standby Oscilloscope screen when video mode is off -->
-              <div id="tv-standby" class="tv-standby">
-                <div class="oscilloscope-container">
-                  <svg class="oscilloscope-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
-                    <path class="oscilloscope-wave-static" d="M 0 25 L 100 25" />
-                    <path class="oscilloscope-wave wave-1" d="M 0 25 Q 12.5 0, 25 25 T 50 25 T 75 25 T 100 25" />
-                    <path class="oscilloscope-wave wave-2" d="M 0 25 Q 12.5 50, 25 25 T 50 25 T 75 25 T 100 25" />
-                  </svg>
-                  <div class="standby-label">STANDBY</div>
-                </div>
-              </div>
               <div class="tv-glare"></div>
               <div class="tv-scanlines"></div>
             </div>
             <div class="tv-controls">
               <div class="tv-led-group">
                 <span id="tv-led-indicator" class="tv-led"></span>
-                <span class="tv-text">TV MONITOR</span>
-                <button id="tv-power-btn" class="tv-power-btn" onclick="app.toggleVideoMode()" title="Toggle Video Mode (Power Switch)"></button>
               </div>
               <div class="tv-knobs">
                 <div class="tv-knob" title="Tuning Dial"></div>
@@ -454,7 +441,7 @@
     <div id="settings-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3 class="modal-title">Spotify & App Configuration</h3>
+          <h3 class="modal-title">Spotify API Configuration</h3>
           <button class="icon-btn close-modal" onclick="app.closeSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
@@ -472,32 +459,6 @@
           <div class="form-group">
             <label for="spotify-client-secret" class="form-label">Spotify Client Secret</label>
             <input type="password" id="spotify-client-secret" class="form-input" placeholder="e.g. 9f8e7d6c5b4a...">
-          </div>
-
-          <div class="settings-divider" style="height: 1px; background: rgba(255,255,255,0.06); margin: 20px 0;"></div>
-
-          <h4 class="settings-subtitle" style="font-size: 14px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; letter-spacing: 0.5px;">Preferences & Data Settings</h4>
-
-          <div class="form-group toggle-group" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <div style="flex: 1; padding-right: 16px;">
-              <label class="form-label" style="margin-bottom: 2px;">Mode Hemat Data</label>
-              <div style="font-size: 11px; color: var(--text-muted);">Gunakan audio kualitas rendah (bitrate rendah) untuk menghemat kuota internet Anda secara ekstrem.</div>
-            </div>
-            <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-              <input type="checkbox" id="settings-data-saver" onchange="app.toggleDataSaverMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
-              <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1);"></span>
-            </label>
-          </div>
-
-          <div class="form-group toggle-group" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <div style="flex: 1; padding-right: 16px;">
-              <label class="form-label" style="margin-bottom: 2px;">Mode Video (Retro TV Monitor)</label>
-              <div style="font-size: 11px; color: var(--text-muted);">Aktifkan streaming video YouTube di layar TV retro. Matikan untuk mematikan video dan menghemat data internet.</div>
-            </div>
-            <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-              <input type="checkbox" id="settings-video-mode" onchange="app.toggleVideoModeSetting(this.checked)" style="opacity: 0; width: 0; height: 0;">
-              <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1);"></span>
-            </label>
           </div>
 
           <div id="settings-status-msg" class="status-msg hidden"></div>

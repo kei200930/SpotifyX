@@ -534,14 +534,13 @@ app.get('/api/spotify/search', ensureSpotifyToken, async (req, res) => {
 });
 
 // HELPER: Access High-Quality Direct Stream URL via Python yt-dlp Engine
-function getPythonAudioStream(query, dataSaver = false) {
+function getPythonAudioStream(query) {
   return new Promise((resolve, reject) => {
     const { exec } = require('child_process');
     // Escape query parameters carefully to avoid injection
     const escapedQuery = query.replace(/[\\"`$]/g, '\\$&');
-    const cmd = `python get_stream.py "${escapedQuery}"${dataSaver ? ' --data-saver' : ''}`;
-    console.log(`Executing Python yt-dlp engine with cmd: ${cmd}`);
-    exec(cmd, (error, stdout, stderr) => {
+    console.log(`Executing Python yt-dlp engine for query: "${escapedQuery}"`);
+    exec(`python get_stream.py "${escapedQuery}"`, (error, stdout, stderr) => {
       if (error) {
         return reject(error);
       }
@@ -558,26 +557,25 @@ function getPythonAudioStream(query, dataSaver = false) {
 // FULL DURATION AUDIO SEARCH ENDPOINT
 // Multi-Tier Audio Engine: Python yt-dlp -> YouTube API -> Deezer -> iTunes
 app.get('/api/audio/search', async (req, res) => {
-  const { track, artist, dataSaver } = req.query;
+  const { track, artist } = req.query;
   if (!track) {
     return res.status(400).json({ success: false, message: 'Track name is required' });
   }
 
-  const isDataSaver = dataSaver === 'true';
   const query = `${track} ${artist || ''}`.trim();
-  console.log(`Searching audio stream for: "${query}" (Data Saver: ${isDataSaver})`);
+  console.log(`Searching audio stream for: "${query}"`);
 
   // TIER 0: Python Premium Audio Engine (yt-dlp)
   try {
-    const data = await getPythonAudioStream(query, isDataSaver);
+    const data = await getPythonAudioStream(query);
     if (data && data.success && data.audio_url) {
-      console.log(`Successfully extracted direct audio URL via Python yt-dlp for: ${query}`);
+      console.log(`Successfully extracted direct high-quality URL via Python yt-dlp for: ${query}`);
       return res.json({
         success: true,
         videoId: data.videoId,
         audio_url: data.audio_url,
         duration: data.duration || 240,
-        source: isDataSaver ? 'Python Data Saver (yt-dlp)' : 'Python Premium Audio (yt-dlp)'
+        source: 'Python Premium Audio (yt-dlp)'
       });
     }
   } catch (e) {
@@ -602,6 +600,8 @@ app.get('/api/audio/search', async (req, res) => {
   } catch (e) {
     console.log(`YouTube Search Tier 1 skipped/failed:`, e.message);
   }
+
+
 
   // TIER 2: iTunes API Backup
   try {
@@ -637,58 +637,6 @@ app.get('/api/audio/search', async (req, res) => {
     duration: 215,
     source: 'Curated Fallback Stream'
   });
-});
-
-// DIRECT AUDIO STREAM PROXY (With Range Requests for CORS bypass and seamless seeking)
-app.get('/api/audio/proxy', async (req, res) => {
-  const { url } = req.query;
-  if (!url) {
-    return res.status(400).send('No url provided');
-  }
-
-  try {
-    const headers = {};
-    if (req.headers.range) {
-      headers['Range'] = req.headers.range;
-    }
-    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-    const response = await axios({
-      method: 'get',
-      url: url,
-      headers: headers,
-      responseType: 'stream',
-      timeout: 15000
-    });
-
-    // Forward response headers
-    if (response.headers['content-type']) {
-      res.setHeader('Content-Type', response.headers['content-type']);
-    } else {
-      res.setHeader('Content-Type', 'audio/mp4');
-    }
-
-    if (response.headers['content-length']) {
-      res.setHeader('Content-Length', response.headers['content-length']);
-    }
-
-    if (response.headers['content-range']) {
-      res.setHeader('Content-Range', response.headers['content-range']);
-      res.status(206); // Partial Content
-    } else {
-      res.status(response.status);
-    }
-
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    response.data.pipe(res);
-  } catch (error) {
-    console.error('Audio proxy error:', error.message);
-    if (!res.headersSent) {
-      res.status(500).send('Audio proxy failed: ' + error.message);
-    }
-  }
 });
 
 // DIRECT YOUTUBE AUDIO STREAM PROXY ENDPOINT
